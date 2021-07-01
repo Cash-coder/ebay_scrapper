@@ -210,7 +210,7 @@ class EbaySpiderSpider(CrawlSpider):
         reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()
         #text_description = response.xpath('//div[@id="desc_wrapper_ctr"]').extract()
         prod_specifications = response.xpath('//h2[contains(text(),"Características del artículo")]/following-sibling::table/tbody/tr/text()').getall()
-        print("macumba")
+        
         try:
             reviews = reviews.replace('\n','')
         except:
