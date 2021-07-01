@@ -122,23 +122,8 @@ class EbaySpiderSpider(CrawlSpider):
         prods_url = response.xpath('//div[@class="s-item__image"]/a[1]/@href').extract()        
         for url in prods_url:
             yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+
     
-    #inside the prod, get the url of the iframe to get the prod_description
-    #it has to be done with another request because it's another url
-    def parse(self, response):
-        
-        iframe_with_description = response.xpath('//div[@id="desc_wrapper_ctr"]/div/iframe/@src').get()
-        start_url = response.meta['start_url']
-        yield Request(url=iframe_with_description,callback=self.second, meta={'prod_description':})
-    #request to get the prod description, now it passes it to the parse function
-
-    def second(self,response):
-
-        prod_description = response.xpath('//body').extract()
-        url = response.url
-        my_print(url,id='expected url prod not iframe')
-
-        yield Request(url=url,callback= self.parse,meta={prod_description})
 
     def parse(self, response):
 
@@ -163,9 +148,8 @@ class EbaySpiderSpider(CrawlSpider):
 
             except Exception as e:
                 print(e)
-                
 
-            
+
         def get_subcategory(response, category):
             ''' Assing subcat based on category, if category is phone, seek for model
             if category is games seek for platform '''
@@ -181,10 +165,10 @@ class EbaySpiderSpider(CrawlSpider):
             return subcategory
             
 
-
         def get_payment_methods(response):
 
             div = response.xpath('id="payDet1"')
+
 
         def get_query_text(query):
             global first_chunk
@@ -194,6 +178,42 @@ class EbaySpiderSpider(CrawlSpider):
             query = query.split(last_chunk)[0]
             query = query.replace('+',' ')
             return query
+
+        def get_specs(html_data):
+            '''Takes html and convert it into a dict of specs key:value,
+            like Brand: Samsung'''
+            from bs4 import BeautifulSoup
+
+            #clean html
+            html_data = html_data.replace('\n','')
+            html_data = html_data.replace('\t','')
+
+            soup = BeautifulSoup(html_data,'lxml')
+            raw_data = soup.find_all('td')
+            data_list = []
+
+            for item in raw_data:
+                data_list.append(item.get_text())
+
+            #create two lists and an index to identify later even and odds
+            odd_keys = []
+            even_values = []
+            index = 1
+
+            #create 2 lists one with all the keys and the other with all the values
+            for item in data_list:
+                item = item.strip()# delete white spaces
+                if index % 2 == 0:
+                    even_values.append(item)
+                    index += 1
+                else:
+                    odd_keys.append(item)
+                    index += 1
+
+            #zip and dict the keys
+            zip_obj = zip(odd_keys,even_values)
+            specs = dict(zip_obj)
+            return specs
 
         #this doesn't work well, in vscode viewer the csv looks fine
         #in excel csv viewer looks with bugs, strange breaklines
@@ -206,11 +226,16 @@ class EbaySpiderSpider(CrawlSpider):
             return related_links
 
         #################   PARSE FUNCTION   ####################
+        #this is the iframe with prod_description inside, to get it it's needed another request to get the info inside the iframe
+        #scrape all the data and make another request to the iframe's url and pass all the scrapped data as meta.
+        iframe_description_url = response.xpath('//div[@id="desc_wrapper_ctr"]/div/iframe/@src').get()
+        
+        #get query url from meta, use a function to get the query text from the origin url
+        start_url = response.meta["start_url"]
+        query = get_query_text(start_url)
 
+        #miscelaneus prod data; All Except prod_description 
         variable_prod = response.xpath('//span[@id="sel-msku-variation"]').get()
-        #get query url from meta, use a funtion to get the query text from the url
-        #query = response.meta["start_url"]
-        #query = get_query_text(query)
         title = response.xpath('//h1[@itemprop="name"]/text()').extract_first()            
         returns = response.xpath('//span[@id="vi-ret-accrd-txt"]/text()').extract_first()
         ebay_article_id = response.xpath('//div[@id="descItemNumber"]/text()').extract_first()
@@ -219,21 +244,23 @@ class EbaySpiderSpider(CrawlSpider):
         ebay_vendor = response.xpath('//span[@class="mbg-nw"]/text()').extract_first()
         product_state = response.xpath('//div[@id="vi-itm-cond"]/text()').extract_first()        
         #related_links = get_related_links(response) #not using because of a weird bug
-        product_sold_out_text = response.xpath('//span[contains(text(),"Este artículo está agotado")]')
-        location = response.xpath('//div[@class="iti-eu-bld-gry "]/span/text()').extract()
+        product_sold_out_text = response.xpath('//span[contains(text(),"Este artículo está agotado")]')        
         #shipping_price = response.xpath('//span[@id="fshippingCost"]/span/text()').extract_first()
         shipping_price= response.xpath('//span[@class="vi-fnf-ship-txt "]/strong/text()').get()
         #if the prod is not from Spain, the xpath for shippment changes
         #shipping_time = response.xpath('//span[@class="vi-acc-del-range"]/b/text()').extract_first()
         shipping_time = response.xpath('//span[@class="vi-del-ship-txt"]/strong[@class="vi-acc-del-range"]/text()').extract_first()
-        #this is to identify when a product is not shipped or not shipped to spain
+        # when prod is not in spain, this identifies if its shipped to spain or not
         served_area = response.xpath('//span[@itemprop="areaServed"]/text()').get()
-        reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()
-        #text_description = response.xpath('//div[@id="desc_wrapper_ctr"]').extract()
-        #text_description = response.xpath('//div[@id="ds_div"]').extract()
-        prod_specifications = response.xpath('//h2[contains(text(),"Características del artículo")]/following-sibling::table/tbody/tr/text()').getall()
-        prod_description = response.meta['prod_description']
-        
+        reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()        
+        seller_votes = response.xpath('//span[@class="mbg-l"]/a/text()').get()
+        payment_methods = response.xpath('//div[@id="payDet1"]/div/img/@alt').getall()
+        prod_specs_html = response.xpath('//div[@class="itemAttr"]/div/table').get()
+        my_print(prod_specs_html)
+        prod_specs_text = str(prod_specs_html) 
+        prod_specs = get_specs(prod_specs_text)
+
+        #this is to replace breaklines that excel don't decode well        
         try:
             reviews = reviews.replace('\n','')
         except:
@@ -244,10 +271,10 @@ class EbaySpiderSpider(CrawlSpider):
         except:
             pass
 
-        seller_votes = response.xpath('//span[@class="mbg-l"]/a/text()').get()
-        payment_methods = response.xpath('//div[@id="payDet1"]/div/img/@alt').getall()
+        #location = response.xpath('//div[@class="iti-eu-bld-gry "]/span/text()').extract()
         article_location = response.xpath('//span[@itemprop="availableAtOrFrom"]/text()').get()
-
+        
+        #depending on article location shows on price or another
         if 'España' not in article_location:
             pass
         
@@ -261,30 +288,68 @@ class EbaySpiderSpider(CrawlSpider):
             shipping_time=response.xpath('//span[@class="vi-acc-del-range"]/b/text()').extract_first()
 
         #many prods are from UK, they show price in GBP and EUR, 
-        # this tries first to take EUR prices with prods with both options
-        #finally the regular price in spanish prods
+        # this tries first to take EUR prices with prods with both options        
         price = response.xpath('//span[@id="convbinPrice"]/text()').get()        
         if price == None:    #notice is different convB..       
             price = response.xpath('//span[@id="convbidPrice"]/text()').get()
-        if price == None:   #this is regular price
-            price = response.xpath('//span[@class="notranslate"]/text()').extract_first()
         
-        #notice the id is conviD and conviN, the're differents
-        if price == None:
+        if price == None:           #notice the id is conviD and conviN, the're differents
             price = response.xpath('//span[@id="convbinPrice"]/text()').get()
+
+        if price == None:   #this is spanish EUR price if prod is from spain
+            price = response.xpath('//span[@class="notranslate"]/text()').extract_first()
+    
+
+        # now call the iframe parser and give it all the info inside meta
+        yield Request(url=iframe_description_url, callback=self.iframe, 
+                    meta={  
+                        'title':title,'price':price, 'query':query,
+                        'shipping_time':shipping_time, 'variable_prod':variable_prod,
+                        'returns':returns,'shipping_price':shipping_price,
+                        'ebay_article_id':ebay_article_id,'prod_url':prod_url,
+                        'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
+                        'category':category, 'payment_methods':payment_methods,
+                        'product_state':product_state, 'product_sold_out_text':product_sold_out_text,
+                        'served_area':served_area,'reviews':reviews, 'prod_specs':prod_specs
+                        })
         
+
+    #this scrapes the prod description in iframe
+    def iframe(self,response):
+
+        #this is the prod descrption in the iframe
+        prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
+
+        #get all data from meta
+
+        title = response.meta['title']
+        price = response.meta['price']
+        query = response.meta['query']
+        shipping_time = response.meta['shipping_time']
+        variable_prod = response.meta['variable_prod']
+        returns = response.meta['returns']
+        shipping_price = response.meta['shipping_price']
+        ebay_article_id = response.meta['ebay_article_id']
+        prod_url = response.meta['prod_url']
+        ebay_vendor = response.meta['ebay_vendor']
+        seller_votes = response.meta['seller_votes']
+        category = response.meta['category']
+        payment_methods = response.meta['payment_methods']
+        product_state = response.meta['product_state']
+        prod_specs = response.meta['prod_specs']
+        served_area = response.meta['served_area']
+        reviews = response.meta['reviews']
+        product_sold_out_text = response.meta['product_sold_out_text']
         
-        
-        #subcategory = get_subcategory(response, category) # subcat is assigned based on category
-        yield {'title':title,'price':price, #'query':query
+        yield {'title':title,'price':price, 'query':query,
         'shipping_time':shipping_time, 'variable_prod':variable_prod,
         'returns':returns,'shipping_price':shipping_price,
         'ebay_article_id':ebay_article_id,'prod_url':prod_url,
         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
-        'category':category, 'payment_methods':payment_methods,
-        'product_state':product_state, 'product_sold_out_text':product_sold_out_text,
-        'served_area':served_area,'reviews':reviews,'text_description ': text_description
-        #'related_links':related_links,#'subcategory':subcategory,
+        'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
+        'product_state':product_state, #'prod_description ':prod_description,
+        'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
+        #'related_links':related_links,
          }
 
 
