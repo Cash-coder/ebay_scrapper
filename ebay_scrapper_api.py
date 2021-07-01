@@ -208,7 +208,7 @@ class EbaySpiderSpider(CrawlSpider):
         #this is to identify when a product is not shipped or not shipped to spain
         served_area = response.xpath('//span[@itemprop="areaServed"]/text()').get()
         reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()
-        text_description = response.xpath('//div[@id="desc_wrapper_ctr"]').extract()
+        #text_description = response.xpath('//div[@id="desc_wrapper_ctr"]').extract()
         prod_specifications = response.xpath('//h2[contains(text(),"Características del artículo")]/following-sibling::table/tbody/tr/text()').getall()
         try:
             reviews = reviews.replace('\n','')
@@ -259,7 +259,7 @@ class EbaySpiderSpider(CrawlSpider):
         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
         'category':category, 'payment_methods':payment_methods,
         'product_state':product_state, 'product_sold_out_text':product_sold_out_text,
-        'served_area':served_area,'reviews':reviews,'text_description ': text_description
+        'served_area':served_area,'reviews':reviews,#'text_description ': text_description
         #'related_links':related_links,#'subcategory':subcategory,
          }
 
