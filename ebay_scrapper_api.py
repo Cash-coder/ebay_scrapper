@@ -185,8 +185,7 @@ class EbaySpiderSpider(CrawlSpider):
             from bs4 import BeautifulSoup
 
             #clean html
-            html_data = html_data.replace('\n','')
-            html_data = html_data.replace('\t','')
+            html_data = html_data.replace('\n','').replace('\t','')
 
             soup = BeautifulSoup(html_data,'lxml')
             raw_data = soup.find_all('td')
@@ -256,7 +255,6 @@ class EbaySpiderSpider(CrawlSpider):
         seller_votes = response.xpath('//span[@class="mbg-l"]/a/text()').get()
         payment_methods = response.xpath('//div[@id="payDet1"]/div/img/@alt').getall()
         prod_specs_html = response.xpath('//div[@class="itemAttr"]/div/table').get()
-        my_print(prod_specs_html)
         prod_specs_text = str(prod_specs_html) 
         prod_specs = get_specs(prod_specs_text)
 
@@ -319,6 +317,27 @@ class EbaySpiderSpider(CrawlSpider):
 
         #this is the prod descrption in the iframe
         prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
+        my_print(type(prod_description))
+
+
+
+        str_des = str(prod_description)
+        str_des = str_des.replace('\n','$%&&$')
+        my_print(text=type(str_des),color='yellow')
+        
+        
+        # prod = []
+        # for line in prod_description:
+        #     line = line.replace('\n','$%&').replace('\r',' ').replace('\t',' ')
+        #     prod.append(line)
+
+        # new=[]
+        # for line in prod:
+        #     line.join(new)
+
+        prod_description = str_des
+        #my_print(text=prod_description,color='yellow')
+        #prod_description = str(prod_description)
 
         #get all data from meta
 
@@ -347,7 +366,7 @@ class EbaySpiderSpider(CrawlSpider):
         'ebay_article_id':ebay_article_id,'prod_url':prod_url,
         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
         'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
-        'product_state':product_state, #'prod_description ':prod_description,
+        'product_state':product_state, 'prod_description ':prod_description,
         'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
         #'related_links':related_links,
          }
