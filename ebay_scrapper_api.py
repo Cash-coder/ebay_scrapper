@@ -315,32 +315,12 @@ class EbaySpiderSpider(CrawlSpider):
     #this scrapes the prod description in iframe
     def iframe(self,response):
 
+        
         #this is the prod descrption in the iframe
         prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
-        my_print(type(prod_description))
-
-
-
-        str_des = str(prod_description)
-        str_des = str_des.replace('\n','$%&&$')
-        my_print(text=type(str_des),color='yellow')
-        
-        
-        # prod = []
-        # for line in prod_description:
-        #     line = line.replace('\n','$%&').replace('\r',' ').replace('\t',' ')
-        #     prod.append(line)
-
-        # new=[]
-        # for line in prod:
-        #     line.join(new)
-
-        prod_description = str_des
-        #my_print(text=prod_description,color='yellow')
-        #prod_description = str(prod_description)
+        prod_description = str(prod_description)
 
         #get all data from meta
-
         title = response.meta['title']
         price = response.meta['price']
         query = response.meta['query']
