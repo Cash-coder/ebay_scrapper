@@ -54,7 +54,7 @@ def get_queries():
     global first_chunk
     global last_chunk 
 
-    with open('queries.csv') as queries_csv:
+    with open('short_queries.csv') as queries_csv:
         reader = csv.reader(queries_csv)
         for row in reader:
             query = row[0]
@@ -247,12 +247,17 @@ class EbaySpiderSpider(CrawlSpider):
                 price = response.xpath('//span[@id="mm-saleDscPrc"]').get()
             return price
 
-        def get_shipping_price(shipping_price):
-            if shipping_price == None:          #//span[@id="fshippingCost"]/span/text()
+        def get_shipping_price():
+            #if shipping_price == None:          
+            try:
                 shipping_price = response.xpath('//span[@id="convetedPriceId"]/text()').get()
+            except:
+                pass
 
             if shipping_price == None:
                 shipping_price = response.xpath('//span[@id="fshippingCost"]/span/text()').get()
+
+            return shipping_price
 
         #################   PARSE FUNCTION   ####################
         #this is the iframe with prod_description inside, to get it it's needed another request to get the info inside the iframe
@@ -306,8 +311,8 @@ class EbaySpiderSpider(CrawlSpider):
         if 'España' not in article_location:
             pass
         
-        if shipping_price == None or '':
-            shipping_price = get_shipping_price(shipping_price)
+        if shipping_price == None:
+            shipping_price = get_shipping_price()
 
         if shipping_time == None or '':
                 shipping_time=response.xpath('//span[@class="vi-acc-del-range"]/b/text()').extract_first()
@@ -316,7 +321,7 @@ class EbaySpiderSpider(CrawlSpider):
         # this tries first to take EUR prices with prods with both options        
         price = response.xpath('//span[@id="convbinPrice"]/text()').get()        
         if price == None or '':
-            price = get_price(price)
+            price = get_price(price) # there're a lot of alternatives, so I made a function
         
         # now call the iframe parser and give it all the info inside meta
         yield Request(url=iframe_description_url, callback=self.iframe, 
@@ -366,7 +371,7 @@ class EbaySpiderSpider(CrawlSpider):
         'ebay_article_id':ebay_article_id,'prod_url':prod_url,
         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
         'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
-        'product_state':product_state, 'prod_description ':prod_description,
+        'product_state':product_state, 'prod_description':prod_description,
         'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
         #'related_links':related_links,
          }
