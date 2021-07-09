@@ -364,6 +364,7 @@ class EbaySpiderSpider(CrawlSpider):
         served_area = response.meta['served_area']
         reviews = response.meta['reviews']
         product_sold_out_text = response.meta['product_sold_out_text']
+        import_taxes = response.meta['import_taxes']
         
         yield {'title':title,'price':price, 'query':query,
         'shipping_time':shipping_time, 'variable_prod':variable_prod,
@@ -373,6 +374,7 @@ class EbaySpiderSpider(CrawlSpider):
         'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
         'product_state':product_state, 'prod_description':prod_description,
         'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
+        'import_taxes':import_taxes,
         #'related_links':related_links,
          }
 
