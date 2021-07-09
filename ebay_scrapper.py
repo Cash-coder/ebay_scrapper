@@ -279,7 +279,6 @@ class EbaySpiderSpider(CrawlSpider):
         product_state = response.xpath('//div[@id="vi-itm-cond"]/text()').extract_first()        
         #related_links = get_related_links(response) #not using because of a weird bug
         product_sold_out_text = response.xpath('//span[contains(text(),"Este artículo está agotado")]')        
-        #shipping_price = response.xpath('//span[@id="fshippingCost"]/span/text()').extract_first()
         shipping_price= response.xpath('//span[@class="vi-fnf-ship-txt "]/strong/text()').get()
         #if the prod is not from Spain, the xpath for shippment changes
         #shipping_time = response.xpath('//span[@class="vi-acc-del-range"]/b/text()').extract_first()
@@ -292,7 +291,7 @@ class EbaySpiderSpider(CrawlSpider):
         prod_specs_html = response.xpath('//div[@class="itemAttr"]/div/table').get()
         prod_specs_text = str(prod_specs_html) 
         prod_specs = get_specs(prod_specs_text)
-
+        import_taxes = response.xpath('//span[@id="impchCost"]/text()').get()
         #this is to replace breaklines that excel don't decode well        
         try:
             reviews = reviews.replace('\n','')
@@ -333,7 +332,8 @@ class EbaySpiderSpider(CrawlSpider):
                         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,        
                         'category':category, 'payment_methods':payment_methods,
                         'product_state':product_state, 'product_sold_out_text':product_sold_out_text,
-                        'served_area':served_area,'reviews':reviews, 'prod_specs':prod_specs
+                        'served_area':served_area,'reviews':reviews, 'prod_specs':prod_specs,
+                        'import_taxes':import_taxes,
                         })
         
 
