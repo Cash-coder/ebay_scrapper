@@ -1,3 +1,4 @@
+''' output file has to be named ebay-spider-output.json '''
 import scrapy
 import csv
 from scrapy.http.request import Request
@@ -7,13 +8,15 @@ from scrapy.loader.processors import MapCompose
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy.linkextractors import LinkExtractor
 from bs4 import BeautifulSoup as bs4
+from scrapy.http import HtmlResponse
 
 #for my_print()
 from colorama import init
 from termcolor import colored
 init()
 
-from scrapy.http import HtmlResponse
+
+GAPS_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\gaps_file.xlsx"
 
 #these are used  in get_queries() and get_query()
 first_chunk = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
@@ -47,14 +50,34 @@ def my_print(text, color='green', mode='normal',**id):
 def get_queries():
     """this takes a file named queries.csv and creates url's to search
     by the scrapper"""
-    import csv
+    from openpyxl import load_workbook
 
-    all_queries = []
+    data_queries = []
     
     global first_chunk
     global last_chunk 
 
-    with open('short_queries.csv') as queries_csv:
+    #gaps_file G
+    wb = load_workbook(GAPS_FILE)
+    ws = wb.active
+
+    for row in ws.iter_rows(values_only=True, min_row=2):
+        query_title = row[0]
+        query_quantity = row[1]
+        query_category = row[2]
+        query_alt_attr = row[3] # FI: "grafito" instead of "negro"
+
+        #create url from text iphone 12 -> https://...iphone+12...
+        query = query_title.replace(' ', '+')
+        query_url = first_chunk + query + last_chunk
+        
+        #add data to list, return list
+        entry = [query_title, query_url, query_quantity, query_category, query_alt_attr]
+        data_queries.append(entry)
+    
+    return data_queries
+
+    with open(GAPS_FILE) as queries_csv:
         reader = csv.reader(queries_csv)
         for row in reader:
             query = row[0]
@@ -70,6 +93,9 @@ def get_queries():
         return all_queries
 
 
+def filter_price_title(prod, target_price, target_title):
+    '''prod // given the prod serp text it filters and returns ok or continue'''
+    
 #####################              #####################
 #####################    CRAWLER   #####################
 
@@ -90,40 +116,63 @@ class EbaySpiderSpider(CrawlSpider):
         # )
     
         allowed_domains = ['www.ebay.es']
-        start_urls = get_queries()
-        # ['https://www.ebay.es/itm/194207335467?hash=item2d37a8c42b%3Ag%3AguUAAOSw42FgzIP%7E&LH_BIN=1',
-        # 'https://www.ebay.es/itm/313519730655?_trkparms=ispr%3D1&hash=item48ff3b6fdf:g:myQAAOSwADxgsNiR&amdata=enc%3AAQAGAAACkPYe5NmHp%252B2JMhMi7yxGiTJkPrKr5t53CooMSQt2orsSB0Xm7k0guzAysaIMfJcbBJmXtVrMUrraCYejHPgiSnRM%252BcPEn4Ba%252FuaUTbl8lT7%252B0FzuQp9fq1%252BaEqI2GrIZ1yCEupo1LkC5Ps%252BjuOFeB2r2Lsx7Tgv6Xg8BGes%252FnYBqR1RvF2IKifEADmNXYARhz%252FPvoIf6Px%252BwdX1qR4FoFyo9pOvOcft26y4wXr3gmafDfdBAIpLYfb3shPeSwpihBZ1aHpZnOVYQs0UcdzNaEr5ymWjQ%252FmSuEuT%252FPI5w4B9TmRM0Ew0XAkT0ZkkCZ88tRSJWxjxHJhnNirYeg5QwOP5SDD2v%252BNlW13CRXzykrdrjpIBSPuDwLFrHCd2bX8QYO9b%252F3DfRqzoIGh8CGedzBX%252BwjbV48W8GEVRPzMlL1AuS4ThusuiQXwKEmNr6IJ2XIX60sxsfPGjGObDeBY88m4z5iWpQ19iSgzU9lJWK0KyneBTKdr8QbUB87P%252FvcrCXYYPtOaXrZxl8Rb%252BVIIl60zujQt0tQO9wZTI8KzUfe108y9PcALaVB7PPmclqJq7S5cNh1XM7TPyVHXAFbTlDs0QyArAa6O8v98Ocagb01cS9PoKC90cI27Omkc0RHb8wN3ufBdGuTj5CnJPRc2dLh3EfCDuJOLrfVYVnPOhDMbWJngGWvjmvsRLGlcEVRkl7U%252BY4wzigH0VsR%252FvxMppiXtm0Sv64NEjLLN1JrH1ldDlcxT2r0%252FFS5ZNWcyEq8vY6WvQmJxwMXS1qAGCZ%252Bj12qEPDSeYqrltk8oVv7wRsLl%252FhdpBEKx3A%252BmeERLrHq9B2hKM0RMi4yfKxdICZQQwIFodjL6GJxFcA3w9luZp8vWPm%7Campid%3APL_CLK%7Cclp%3A2334524',
-        # 'https://www.ebay.es/itm/143583232314?_trkparms=ispr%3D1&hash=item216e3a413a:g:WGIAAOSwKU1emitb&amdata=enc%3AAQAGAAACkPYe5NmHp%252B2JMhMi7yxGiTJkPrKr5t53CooMSQt2orsS9d9gBrkNbRQtRn8MVXnYkiJFMm7AxianpWr3Y8yHSWFpKEIfZIOHY7uKPFLdtlfps%252Ffb38sXWfveRXTH%252F7LSmsuktN12xJkLewPieBhWqktIYrSYl%252Ffg40LXhhHKcTHVmDfmoO9AyGJLWb3lTOeP2nMflV%252BA%252FjAGo%252F7ZiAJnyco02PkYfwuc6RDiut4K6lP7x66NmfxVyVqnvm9WxRO3y7JHH1eHAP88w33s6qmV28ey76jcJN1dfRuid24PlfLYVI2xnPbukV0S6V5uPp1KNhdhrW9rkH2pX%252FeV83JY%252B%252FSUtLrdKhCexCn8%252FsG%252FHCF6N6uWZp1kwgTCrcVHMh6GNi63Rp8j58wYxrFIvP8%252BDLKmUg73P7LI1N2529np8yZvbjIRVTL%252BlAYaEHVBwQJgJoZWNj%252Bop1QlgHlr0YaDLTiz491iMeyp8arD3chGIzpdU%252BXd6rSZO%252F3aLKV%252BoFHnrgs2ohVjEeS1EkYQ%252B9SHHcuVie4%252BcLDinCYjWwRMm7vUKblFrT2jvE6%252FIHF1gaN5yqhz3Ju4ycEHTGtgMado0Rhb24rQc%252BHizwzaciSL%252B9%252BdiOFVBFZpxbZgpgPCgrEMR1mnCPaDPZ4mwtsu7okZiVELnwzF1nI6%252B3je9Zqr55Wn6jCV1aaxKTvqIrtXU00%252BII8wnkhckQPoYba7qbkd1e4zZ8KoloHbgZjEVK8kINC7KWVBQH2P2FV0BVouZsjWe8G1nBlY32YRY273Axu1%252FkLoQhm708T5Y9x4HDtt7OkTrF1IsURuR32YREgslaefSM5OyMECfsBmWNPsPZ5LCw0KTWT8%252B5X36XrqbjdCGFgR%7Campid%3APL_CLK%7Cclp%3A2334524,'
-        # ]
-  
+        data_query = get_queries()
+        
+        for entry in data_query:
+            query_title = entry[0]
+            query_url = entry[1]
+            query_quantity = entry[2]
+            query_category = entry[3]
+            query_alt_attr = entry[4] # FI: "grafito" instead of "negro"
 
-        download_delay = 2 # Already set in settings.py
+            download_delay = 2 # Already set in settings.py
+            
+            #for start_url in start_urls:
+            yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url, 
+                query_title:'query_title', query_quantity:'query_quantity',
+                query_category:'query_category', query_alt_attr:'query_alt_attr'})
 
-
-        # Tupla de reglas para direccionar el movimiento de nuestro Crawler a traves de las paginas
-        # rules = (
-        #     Rule( # Regla de movimiento VERTICAL hacia el detalle de los hoteles
-        #         LinkExtractor(
-        #             allow=r'/itm/' # Si la URL contiene este patron, haz un requerimiento a esa URL
-        #         ), follow=True, callback="parse"), # El callback es el nombre de la funcion que se va a llamar con la respuesta al requerimiento hacia estas URLs
-        # )
-
+            #test url
+            # ['https://www.ebay.es/itm/194207335467?hash=item2d37a8c42b%3Ag%3AguUAAOSw42FgzIP%7E&LH_BIN=1',
+            # 'https://www.ebay.es/itm/313519730655?_trkparms=ispr%3D1&hash=item48ff3b6fdf:g:myQAAOSwADxgsNiR&amdata=enc%3AAQAGAAACkPYe5NmHp%252B2JMhMi7yxGiTJkPrKr5t53CooMSQt2orsSB0Xm7k0guzAysaIMfJcbBJmXtVrMUrraCYejHPgiSnRM%252BcPEn4Ba%252FuaUTbl8lT7%252B0FzuQp9fq1%252BaEqI2GrIZ1yCEupo1LkC5Ps%252BjuOFeB2r2Lsx7Tgv6Xg8BGes%252FnYBqR1RvF2IKifEADmNXYARhz%252FPvoIf6Px%252BwdX1qR4FoFyo9pOvOcft26y4wXr3gmafDfdBAIpLYfb3shPeSwpihBZ1aHpZnOVYQs0UcdzNaEr5ymWjQ%252FmSuEuT%252FPI5w4B9TmRM0Ew0XAkT0ZkkCZ88tRSJWxjxHJhnNirYeg5QwOP5SDD2v%252BNlW13CRXzykrdrjpIBSPuDwLFrHCd2bX8QYO9b%252F3DfRqzoIGh8CGedzBX%252BwjbV48W8GEVRPzMlL1AuS4ThusuiQXwKEmNr6IJ2XIX60sxsfPGjGObDeBY88m4z5iWpQ19iSgzU9lJWK0KyneBTKdr8QbUB87P%252FvcrCXYYPtOaXrZxl8Rb%252BVIIl60zujQt0tQO9wZTI8KzUfe108y9PcALaVB7PPmclqJq7S5cNh1XM7TPyVHXAFbTlDs0QyArAa6O8v98Ocagb01cS9PoKC90cI27Omkc0RHb8wN3ufBdGuTj5CnJPRc2dLh3EfCDuJOLrfVYVnPOhDMbWJngGWvjmvsRLGlcEVRkl7U%252BY4wzigH0VsR%252FvxMppiXtm0Sv64NEjLLN1JrH1ldDlcxT2r0%252FFS5ZNWcyEq8vY6WvQmJxwMXS1qAGCZ%252Bj12qEPDSeYqrltk8oVv7wRsLl%252FhdpBEKx3A%252BmeERLrHq9B2hKM0RMi4yfKxdICZQQwIFodjL6GJxFcA3w9luZp8vWPm%7Campid%3APL_CLK%7Cclp%3A2334524',
+            # 'https://www.ebay.es/itm/143583232314?_trkparms=ispr%3D1&hash=item216e3a413a:g:WGIAAOSwKU1emitb&amdata=enc%3AAQAGAAACkPYe5NmHp%252B2JMhMi7yxGiTJkPrKr5t53CooMSQt2orsS9d9gBrkNbRQtRn8MVXnYkiJFMm7AxianpWr3Y8yHSWFpKEIfZIOHY7uKPFLdtlfps%252Ffb38sXWfveRXTH%252F7LSmsuktN12xJkLewPieBhWqktIYrSYl%252Ffg40LXhhHKcTHVmDfmoO9AyGJLWb3lTOeP2nMflV%252BA%252FjAGo%252F7ZiAJnyco02PkYfwuc6RDiut4K6lP7x66NmfxVyVqnvm9WxRO3y7JHH1eHAP88w33s6qmV28ey76jcJN1dfRuid24PlfLYVI2xnPbukV0S6V5uPp1KNhdhrW9rkH2pX%252FeV83JY%252B%252FSUtLrdKhCexCn8%252FsG%252FHCF6N6uWZp1kwgTCrcVHMh6GNi63Rp8j58wYxrFIvP8%252BDLKmUg73P7LI1N2529np8yZvbjIRVTL%252BlAYaEHVBwQJgJoZWNj%252Bop1QlgHlr0YaDLTiz491iMeyp8arD3chGIzpdU%252BXd6rSZO%252F3aLKV%252BoFHnrgs2ohVjEeS1EkYQ%252B9SHHcuVie4%252BcLDinCYjWwRMm7vUKblFrT2jvE6%252FIHF1gaN5yqhz3Ju4ycEHTGtgMado0Rhb24rQc%252BHizwzaciSL%252B9%252BdiOFVBFZpxbZgpgPCgrEMR1mnCPaDPZ4mwtsu7okZiVELnwzF1nI6%252B3je9Zqr55Wn6jCV1aaxKTvqIrtXU00%252BII8wnkhckQPoYba7qbkd1e4zZ8KoloHbgZjEVK8kINC7KWVBQH2P2FV0BVouZsjWe8G1nBlY32YRY273Axu1%252FkLoQhm708T5Y9x4HDtt7OkTrF1IsURuR32YREgslaefSM5OyMECfsBmWNPsPZ5LCw0KTWT8%252B5X36XrqbjdCGFgR%7Campid%3APL_CLK%7Cclp%3A2334524,'
+            # ]
     
-
-        for start_url in start_urls:
-            yield scrapy.Request(url=start_url, callback=self.serp, meta={'start_url':start_url})
+            # old spider rules
+            # Tupla de reglas para direccionar el movimiento de nuestro Crawler a traves de las paginas
+            # rules = (
+            #     Rule( # Regla de movimiento VERTICAL hacia el detalle de los hoteles
+            #         LinkExtractor(
+            #             allow=r'/itm/' # Si la URL contiene este patron, haz un requerimiento a esa URL
+            #         ), follow=True, callback="parse"), # El callback es el nombre de la funcion que se va a llamar con la respuesta al requerimiento hacia estas URLs
+            # )
 
     #ebay serp with prod links
     def serp(self,response):
-        
-        start_url = response.meta["start_url"]
-        #my_print(response.text)
+ 
+        # serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]').text
 
-        prods_url = response.xpath('//div[@class="s-item__image"]/a[1]/@href').extract()        
-        for url in prods_url:
-            yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+        # for prod in serp_prods:
+            
+        #     # filter_response = filter_price_title(serp_price, serp_title)
+        #     filter_response = filter_price_title(prod.text)
 
-    
+        #     #if the prod hasn't the right title or price, continue to next
+        #     if filter_response == 'continue':
+        #         continue
+
+        #     #else, the prod might be correct, parse it
+        #     elif filter_response == 'correct':
+        #         yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+            
+            ############################
+            start_url = response.meta["start_url"]
+            prods_url = response.xpath('//div[@class="s-item__image"]/a[1]/@href').extract()        
+            
+            for url in prods_url:
+                yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+
+
 
     def parse(self, response):
 
