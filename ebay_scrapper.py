@@ -15,7 +15,7 @@ from colorama import init
 from termcolor import colored
 init()
 
-
+print('initiaded')
 GAPS_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\gaps_file.xlsx"
 
 #these are used  in get_queries() and get_query()
@@ -48,14 +48,14 @@ def my_print(text, color='green', mode='normal',**id):
             print(colored(item, 'white','on_blue'))
 
 def get_queries():
-    """this takes a file named queries.csv and creates url's to search
-    by the scrapper"""
+    """ this takes a file named queries.csv and creates url's to search
+    by the scrapper """
     from openpyxl import load_workbook
 
     data_queries = []
     
     global first_chunk
-    global last_chunk 
+    global last_chunk
 
     #gaps_file G
     wb = load_workbook(GAPS_FILE)
@@ -66,44 +66,44 @@ def get_queries():
         query_quantity = row[1]
         query_category = row[2]
         query_alt_attr = row[3] # FI: "grafito" instead of "negro"
+        query_price = row[4] # FI: "grafito" instead of "negro"
 
+        if query_title == None : continue
+        print('--------------',
+        query_title,
+        query_quantity,
+        query_category,
+        query_alt_attr)
         #create url from text iphone 12 -> https://...iphone+12...
         query = query_title.replace(' ', '+')
         query_url = first_chunk + query + last_chunk
         
         #add data to list, return list
-        entry = [query_title, query_url, query_quantity, query_category, query_alt_attr]
+        entry = [query_title, query_url, query_quantity, query_category, query_alt_attr, query_price]
         data_queries.append(entry)
     
     return data_queries
 
-    with open(GAPS_FILE) as queries_csv:
-        reader = csv.reader(queries_csv)
-        for row in reader:
-            query = row[0]
-            query = query.replace(' ','+')
-            print(query)
-            url = first_chunk + query + last_chunk
-            all_queries.append(url)
-
-        print("----------------------")
-        for row in all_queries:
-            print(row)
-
-        return all_queries
-
 
 def filter_price_title(prod, target_price, target_title):
     '''prod // given the prod serp text it filters and returns ok or continue'''
-    
+    pass
 #####################              #####################
 #####################    CRAWLER   #####################
 
-class EbaySpiderSpider(CrawlSpider):
-
+# class EbaySpiderSpider(CrawlSpider):
+class EbaySpiderSpider(scrapy.Spider):
+    print('class')
     name = 'ebay-spider'
 
     def start_requests(self):
+        print('inside start_requests')
+        
+        # def get_url(self, query_category, query_title):
+        #     ''' returns a url based on category and query'''
+        #     query_category = 'asdasd'
+        
+        
         # Forma de configurar el USER AGENT en scrapy
         custom_settings = {
             'USER_AGENT': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/71.0.3578.80 Chrome/71.0.3578.80 Safari/537.36'
@@ -120,16 +120,29 @@ class EbaySpiderSpider(CrawlSpider):
         
         for entry in data_query:
             query_title = entry[0]
-            query_url = entry[1]
+            # query_url = entry[1]
             query_quantity = entry[2]
             query_category = entry[3]
             query_alt_attr = entry[4] # FI: "grafito" instead of "negro"
+            query_price = entry[5]
 
-            download_delay = 2 # Already set in settings.py
+            print('-------------data_query:',
+            query_title,
+            # query_url,
+            query_quantity,
+            query_category,
+            query_alt_attr,
+            query_price
+            )
+
+            # query_url = get_url(query_category, query_title)
+            query_url = 'https://www.ebay.es/sch/15032/i.html?_from=R40&_nkw=iphone+11&LH_TitleDesc=0'
+
+            download_delay = 0.5 # Already set in settings.py
             
             #for start_url in start_urls:
             yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url, 
-                query_title:'query_title', query_quantity:'query_quantity',
+                query_title:'query_title', query_quantity:'query_quantity', query_price:'query_price',
                 query_category:'query_category', query_alt_attr:'query_alt_attr'})
 
             #test url
@@ -148,29 +161,60 @@ class EbaySpiderSpider(CrawlSpider):
             # )
 
     #ebay serp with prod links
-    def serp(self,response):
- 
-        # serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]').text
+    def serp(self, response):
 
+        def filter_price_title(serp_prods, query_title, query_price):
+            print('executing...')
+        
+            #this is the output return
+            filtered_prods_urls = []
+        
+            for prod in serp_prods:
+                print(prod.text)
+                prod_url = prod.find('a')
+                print('--------', prod_url)
+                
+                text = prod.text.split('\n')
+                serp_title = text[0]
+
+        #end filter def
+        #################################################
+        
+        start_url = response.meta["start_url"]        
+        query_category = response.meta['query_category']
+        query_title = response.meta['query_title']
+        query_price = response.meta['query_price']
+
+        #get product  webelements from ebay serps
+        serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]')
+        print('-------serp prods count', len(serp_prods))
+        
+        #return url list of products that pass title, price not auction price
+        filtered_prods = filter_price_title(serp_prods, query_title, query_price)
+        
+        for prod_url in filtered_prods:
+            yield Request(url= prod_url, callback=self.parse, meta={'start_url':start_url})    
+        
+
+        #######################################
         # for prod in serp_prods:
             
         #     # filter_response = filter_price_title(serp_price, serp_title)
-        #     filter_response = filter_price_title(prod.text)
+        #     filter_url = filter_price_title(prod, query_title, query_price)
 
         #     #if the prod hasn't the right title or price, continue to next
-        #     if filter_response == 'continue':
+        #     if filter_url == 'continue':
         #         continue
 
         #     #else, the prod might be correct, parse it
-        #     elif filter_response == 'correct':
-        #         yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+        #     yield Request(url= filter_url, callback=self.parse, meta={'start_url':start_url})
             
-            ############################
-            start_url = response.meta["start_url"]
-            prods_url = response.xpath('//div[@class="s-item__image"]/a[1]/@href').extract()        
+            ############################  old
+            # start_url = response.meta["start_url"]
+            # prods_url = response.xpath('//div[@class="s-item__image"]/a[1]/@href').extract()        
             
-            for url in prods_url:
-                yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
+            # for url in prods_url:
+                # yield Request(url=url, callback=self.parse, meta={'start_url':start_url})
 
 
 
