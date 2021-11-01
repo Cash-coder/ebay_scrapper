@@ -74,7 +74,8 @@ def get_queries():
         query_price = row[4] # FI: "grafito" instead of "negro"
 
         if query_title == None : continue
-        print('--------------',
+        
+        logging.info('gaps_file:',
         query_title,
         query_quantity,
         query_category,
@@ -279,15 +280,15 @@ class EbaySpiderSpider(scrapy.Spider):
 
             div = response.xpath('id="payDet1"')
 
+        #query text is passed in meta from gaps_file
+        # def get_query_text(query):
+        #     global first_chunk
+        #     global last_chunk
 
-        def get_query_text(query):
-            global first_chunk
-            global last_chunk
-
-            query = query.split(first_chunk)[1]
-            query = query.split(last_chunk)[0]
-            query = query.replace('+',' ')
-            return query
+        #     query = query.split(first_chunk)[1]
+        #     query = query.split(last_chunk)[0]
+        #     query = query.replace('+',' ')
+        #     return query
 
         def get_specs(html_data):
             '''Takes html and convert it into a dict of specs key:value,
@@ -376,7 +377,9 @@ class EbaySpiderSpider(scrapy.Spider):
         
         #get query url from meta, use a function to get the query text from the origin url
         start_url = response.meta["start_url"]
-        query = get_query_text(start_url)
+        
+        #now target query should be passed in meta from the gaps_file
+        # query = get_query_text(start_url)
 
         #miscelaneus prod data; All Except prod_description 
         variable_prod = response.xpath('//span[@id="sel-msku-variation"]').get()
