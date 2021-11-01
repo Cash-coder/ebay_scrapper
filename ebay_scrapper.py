@@ -10,9 +10,10 @@ from scrapy.linkextractors import LinkExtractor
 from bs4 import BeautifulSoup as bs4
 from scrapy.http import HtmlResponse
 import logging
+from time import sleep
 
 # logging.basicConfig(level=logging.DEBUG)
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 #for my_print()
 from colorama import init
@@ -34,21 +35,17 @@ def my_print(text, color='green', mode='normal',**id):
         if color == 'red':
             print(colored(id, 'white','on_red'))
             print(colored(text, 'white','on_red'))        
-
         elif color == 'green':
             print(colored(id, 'white','on_green'),sep="\n")
             print(colored(text, 'white','on_green'),sep="\n")
-
         elif color == 'yellow':
             print(colored(id, 'blue','on_yellow'))
             print(colored(text, 'blue','on_yellow'))
-
         elif color == 'blue':
             print(colored(id, 'white','on_blue'))
             print(colored(text, 'white','on_blue'))
 
     elif mode=='lines':
-        
         for item in text:
             print(colored(item, 'white','on_blue'))
 
@@ -64,14 +61,19 @@ def get_queries():
 
     #gaps_file 
     wb = load_workbook(GAPS_FILE)
-    ws = wb.active
+    ws = wb.active  
 
-    for row in ws.iter_rows(values_only=True, min_row=2):
+    #get the ebay_id_list
+    ebay_id_list = ws['F2'].value
+
+    #get all the rows
+    for row in ws.iter_rows(values_only=True, min_row=3):
         query_title = row[0]
         query_quantity = row[1]
         query_category = row[2]
         query_alt_attr = row[3] # FI: "grafito" instead of "negro"
         query_price = row[4] # FI: "grafito" instead of "negro"
+        
 
         if query_title == None : continue
         
@@ -85,7 +87,8 @@ def get_queries():
         entry = [query_title, query_quantity, query_category, query_alt_attr, query_price]
         data_queries.append(entry)
     
-    return data_queries
+    entry = [ebay_id_list, data_queries]
+    return entry
 
 
 def filter_price_title(prod, target_price, target_title):
@@ -97,10 +100,10 @@ def create_url(query_category, query_title):
     #use one or other chunks based on target category
     if query_category == 'smartphones':
         first_url_chunk = 'https://www.ebay.es/sch/i.html?_from=R40&_trksid=p2380057.m570.l2632&_nkw='
-        second_url_chunk = '&_sacat=9355'
+        second_url_chunk = '&_sacat=9355&_ipg=200'
     elif query_category == 'smartwatches':
         first_url_chunk = 'https://www.ebay.es/sch/i.html?_from=R40&_trksid=p2334524.m570.l2632&_nkw=smartwatch&_sacat=178893&LH_TitleDesc=0&_odkw='
-        second_url_chunk = '&_osacat=178893'
+        second_url_chunk = '&_osacat=178893&_ipg=200'
     
     #create the url
     query_title = query_title.replace(' ', '+')
@@ -135,14 +138,20 @@ class EbaySpiderSpider(scrapy.Spider):
         # )
     
         allowed_domains = ['www.ebay.es']
-        data_queries = get_queries()
+
+        data_entry = get_queries()
+        data_queries = data_entry[1]
+        ebay_id_list = data_entry[0]
+        #source is string separeted with comma, convert to list with split
+        ebay_id_list = ebay_id_list.split(',')
+        print(f'---ebay_id_list{ebay_id_list}')
         
         for entry in data_queries:
             query_title = entry[0]
-            query_quantity = entry[2]
-            query_category = entry[3]
-            query_alt_attr = entry[4] # FI: "grafito" instead of "negro"
-            query_price = entry[5]
+            query_quantity = entry[1]
+            query_category = entry[2]
+            query_alt_attr = entry[3] # FI: "grafito" instead of "negro"
+            query_price = entry[4]
 
             print('-------------data_query:',
             query_title,
@@ -160,8 +169,9 @@ class EbaySpiderSpider(scrapy.Spider):
             
             #for start_url in start_urls:
             yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url, 
-                query_title:'query_title', query_quantity:'query_quantity', query_price:'query_price',
-                query_category:'query_category', query_alt_attr:'query_alt_attr'})
+                'query_title':query_title, 'query_quantity':query_quantity, 'query_price':query_price,
+                'query_category':query_category, 'query_alt_attr':query_alt_attr,
+                'ebay_id_list':ebay_id_list})
 
             #test url
             # ['https://www.ebay.es/itm/194207335467?hash=item2d37a8c42b%3Ag%3AguUAAOSw42FgzIP%7E&LH_BIN=1',
@@ -181,24 +191,104 @@ class EbaySpiderSpider(scrapy.Spider):
     #ebay serp with prod links
     def serp(self, response):
 
-        def filter_price_title(serp_prods, query_title, query_price):
+        def filter_price_title(serp_prods, query_title, query_price, ebay_id_list):
             print('executing...')
         
             #this is the output return
             filtered_prods_urls = []
         
             for prod in serp_prods:
-                print(prod.text)
-                prod_url = prod.find('a')
-                print('--------', prod_url)
-                
-                text = prod.text.split('\n')
-                serp_title = text[0]
+                print(f'serp_prods: prod {prod}')
+                serp_link = prod.xpath('//a[@class="s-item__serp_link"]/@href').get()
+                serp_id = serp_link.split('itm/')[1].split('?')[0]
+                serp_title = prod.xpath('//h3[@class="s-item__title"]/text()').get()
+                serp_price = prod.xpath('//span[@class="s-item__price"]/text()').get()
+
+                print(f'---prod: link <{serp_link}> id <{serp_id}> \n serp_title: {serp_title} \n serp_price:{serp_price}')
+
+                #if the prod is already in ebay_id = prod exist in prod_db -> ignore it
+                if serp_id in ebay_id_list:
+                    print(f'this ebay_id already exist {serp_id}') 
+                    continue
+                #if the prod is cheaper than the filter price, ignore that prod
+                if serp_price < query_price:
+                    print(f'this price <{serp_price}> is too low for the filter price: <{query_price}>')
+                    continue
+
+                #filter by title, split query in words, if all words in serp_title, append the serp_link to filtered_urls
+                s = query_title.split(' ') #split in words
+                n = len(s) 
+
+                filtered_urls = []
+                if n == 1: # title is only word
+                    if query_title in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}, query_title <{query_title}>')
+                        continue
+                elif n == 2:
+                    if s[0] in serp_title and s[1] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue
+                elif n == 3:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 4:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 5:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 6:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 7:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 8:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 9:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title and s[8] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+                elif n == 10:
+                    if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title and s[8] in serp_title and s[9] in serp_title:
+                        filtered_urls.append(serp_link)
+                    else:
+                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        continue                        
+
+            return filtered_urls
 
         #end filter def
         #################################################
         
         start_url = response.meta["start_url"]        
+        ebay_id_list = response.meta['ebay_id_list']
+        # print('-------------------\n', start_url, '\n-----------------------')
         query_category = response.meta['query_category']
         query_title = response.meta['query_title']
         query_price = response.meta['query_price']
@@ -206,11 +296,12 @@ class EbaySpiderSpider(scrapy.Spider):
         #get product  webelements from ebay serps
         serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]')
         print('-------serp prods count', len(serp_prods))
-        
+
         #return url list of products that pass title, price not auction price
-        filtered_prods = filter_price_title(serp_prods, query_title, query_price)
-        
+        filtered_prods = filter_price_title(serp_prods, query_title, query_price, ebay_id_list)
+
         for prod_url in filtered_prods:
+            print(prod_url)
             yield Request(url= prod_url, callback=self.parse, meta={'start_url':start_url})    
         
 
@@ -377,7 +468,7 @@ class EbaySpiderSpider(scrapy.Spider):
         
         #get query url from meta, use a function to get the query text from the origin url
         start_url = response.meta["start_url"]
-        
+        query = response.meta["query"]
         #now target query should be passed in meta from the gaps_file
         # query = get_query_text(start_url)
 
