@@ -73,7 +73,7 @@ def get_queries():
         query_category = row[2]
         query_alt_attr = row[3] # FI: "grafito" instead of "negro"
         query_price = row[4] # FI: "grafito" instead of "negro"
-        
+        excluded_kws = row[5] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
 
         if query_title == None : continue
         
@@ -84,7 +84,7 @@ def get_queries():
         query_alt_attr)
         
         #add data to list, return list
-        entry = [query_title, query_quantity, query_category, query_alt_attr, query_price]
+        entry = [query_title, query_quantity, query_category, query_alt_attr, query_price, excluded_kws]
         data_queries.append(entry)
     
     entry = [ebay_id_list, data_queries]
@@ -152,13 +152,15 @@ class EbaySpiderSpider(scrapy.Spider):
             query_category = entry[2]
             query_alt_attr = entry[3] # FI: "grafito" instead of "negro"
             query_price = entry[4]
+            excluded_kws = entry[5]
 
             print('-------------data_query:',
             query_title,
             query_quantity,
             query_category,
             query_alt_attr,
-            query_price
+            query_price,
+            excluded_kws
             )
 
             query_url = create_url(query_category, query_title)
@@ -171,7 +173,7 @@ class EbaySpiderSpider(scrapy.Spider):
             yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url, 
                 'query_title':query_title, 'query_quantity':query_quantity, 'query_price':query_price,
                 'query_category':query_category, 'query_alt_attr':query_alt_attr,
-                'ebay_id_list':ebay_id_list})
+                'ebay_id_list':ebay_id_list, 'excluded_kws':excluded_kws})
 
             #test url
             # ['https://www.ebay.es/itm/194207335467?hash=item2d37a8c42b%3Ag%3AguUAAOSw42FgzIP%7E&LH_BIN=1',
@@ -191,7 +193,7 @@ class EbaySpiderSpider(scrapy.Spider):
     #ebay serp with prod links
     def serp(self, response):
 
-        def filter_price_title(serp_prods, query_title, query_price, ebay_id_list):
+        def filter_price_title(serp_prods, query_title, query_price, ebay_id_list, excluded_kws):
             print('executing...')
         
             #this is the output return
@@ -221,7 +223,7 @@ class EbaySpiderSpider(scrapy.Spider):
 
                 filtered_urls = []
                 if n == 1: # title is only word
-                    if query_title in serp_title:
+                    if query_title in serp_title and excluded_kws not in serp_title:
                         filtered_urls.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}, query_title <{query_title}>')
@@ -292,13 +294,14 @@ class EbaySpiderSpider(scrapy.Spider):
         query_category = response.meta['query_category']
         query_title = response.meta['query_title']
         query_price = response.meta['query_price']
+        excluded_kws = response.meta['excluded_kws']
 
         #get product  webelements from ebay serps
         serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]')
         print('-------serp prods count', len(serp_prods))
 
         #return url list of products that pass title, price not auction price
-        filtered_prods = filter_price_title(serp_prods, query_title, query_price, ebay_id_list)
+        filtered_prods = filter_price_title(serp_prods, query_title, query_price, ebay_id_list, excluded_kws)
 
         for prod_url in filtered_prods:
             print(prod_url)

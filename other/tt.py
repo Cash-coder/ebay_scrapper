@@ -13,53 +13,83 @@ def myfilter(query_title, serp_titles, excluded_kws):
     n = len(s) 
 
     filtered_urls = []
+    print('serp_titles',serp_titles)
     for serp_title in serp_titles:
-        if n == 1: # title is only one word
-            if query_title in serp_title and excluded_kws not in serp_title:
-                filtered_urls.append(serp_link)
-            else:
-                print(f'no title match in this prod <{serp_title}, query_title <{query_title}>')
-                continue
-        elif n == 2:
+        print('serp_title',serp_title)
+       
+        ##########
+        if n == 2:    
+            #if all the words in query_title are present in serp_title...
             if s[0] in serp_title and s[1] in serp_title:
-                if any(item in s for item in excluded_kws) == False:
-                    print(f'cathed excluded! {serp_title}')
-                    continue
-                filtered_urls.append(serp_title)
-                # for kw in excluded_kws: # if exluded the is some kw in serp_title -> continue
-                #     print(kw)
-                    # if kw not in serp_title:
-                    
-                    
-                    #     print(f'kw {kw}, serp_title:{serp_title}, query_title{query_title}')
+                print(f' query_title {query_title} in serp_title {serp_title}')
+                #workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue
+                flag = 0
+                for kw in excluded_kws:
+                    if kw in serp_title:
+                        flag +=1
+                #if there aren't any excluded kw in serp_title, append to list
+                if flag == 0:
+                    filtered_urls.append(serp_title)
             else:
                 print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                 continue
+        #############
         elif n == 3:
             if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title:
-                filtered_urls.append(serp_link)
+                filtered_urls.append(serp_title)
             else:
                 print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                 continue                        
         elif n == 4:
             if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title:
-                filtered_urls.append(serp_link)
+                filtered_urls.append(serp_title)
             else:
                 print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                 continue  
-        return filtered_urls                      
+    return filtered_urls                      
+
+# query_title = 'iphone 12'
+# serp_titles = ['iphone 12 pro', 'iphone 12 max', 'iphone 12 pro max', 'iphone 12']
+# serp_link = 'urlheree'
 
 query_title = 'iphone 12'
-serp_titles = 'iphone 12 pro', 'iphone 12 max', 'iphone 12'
-serp_link = 'urlheree'
+serp_titles = ['samsung j3','iphone 12 pro', 'iphone 12 max', 'iphone 12']
 excluded_kws = ['pro', 'max']
 
-print(myfilter(query_title, serp_titles, excluded_kws))
+filtered_urls = myfilter(query_title, serp_titles, excluded_kws)
+print(filtered_urls)
 
-list_A = ['iphone', '12']
 
-list_B = ['pro', 'max']
 
-check = any(item in list_A for item in list_B)
 
-# print(check)
+# check = any(item in list_A for item in list_B)
+
+
+# for serp_title in serp_titles:
+#     if serp_title in query_title:
+#         break
+#     else:
+#         print(e)
+
+#####################
+# s = query_title.split(' ') #split in words
+# filtered_urls = []
+
+# for serp_title in serp_titles:
+#     #if all the words in query_title are present in serp_title...
+#     if s[0] in serp_title and s[1] in serp_title:
+#         #workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue
+#         flag = 0
+#         for kw in excluded_kws:
+#             if kw in serp_title:
+#                 flag +=1
+#         #if there aren't any excluded kw in serp_title, append to list
+#         if flag == 0:
+#             filtered_urls.append(serp_title)
+#     else:
+#         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+#         continue
+
+
+# for e in filtered_urls: 
+#     print(e)
