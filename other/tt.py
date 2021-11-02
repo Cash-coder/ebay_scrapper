@@ -8,6 +8,16 @@ from selenium.webdriver.common.by import By
 
 
 def myfilter(query_title, serp_titles, excluded_kws):
+    def excluded_kw_absence(serp_title, excluded_kw):
+        flag = 0
+        for kw in excluded_kws:
+            if kw in serp_title:
+                flag +=1
+        if flag == 0 :
+            return True # any exc kw in title
+        elif flag != 0:
+            return False #some exc kw in title
+
     #filter by title, split query in words, if all words in serp_title, append the serp_link to filtered_urls
     s = query_title.split(' ') #split in words
     n = len(s) 
@@ -21,14 +31,15 @@ def myfilter(query_title, serp_titles, excluded_kws):
         if n == 2:    
             #if all the words in query_title are present in serp_title...
             if s[0] in serp_title and s[1] in serp_title:
-                print(f' query_title {query_title} in serp_title {serp_title}')
                 #workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue
-                flag = 0
-                for kw in excluded_kws:
-                    if kw in serp_title:
-                        flag +=1
-                #if there aren't any excluded kw in serp_title, append to list
-                if flag == 0:
+                # flag = 0
+                # for kw in excluded_kws:
+                    # if kw in serp_title:
+                        # flag +=1
+                # #if there aren't any excluded kw in serp_title, append to list
+                # if flag == 0:
+                r = excluded_kw_absence(serp_title, excluded_kws)
+                if r:
                     filtered_urls.append(serp_title)
             else:
                 print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
