@@ -67,14 +67,38 @@ def get_queries():
     #get all the rows
     for row in ws.iter_rows(values_only=True, min_row=3):
         query_title = row[0]
-        query_quantity = row[1]
-        query_category = row[2]
-        query_alt_attr = row[3] # FI: "grafito" instead of "negro"
-        query_price = row[4] # FI: "grafito" instead of "negro"
-        excluded_kws = row[5] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
+        query_attribute_1 = row[1] #FI: GB
+        query_attribute_2 = row[2] #FI: color
+        query_quantity = row[3]
+        query_category = row[4]
+        query_alt_attr = row[5] # FI: "grafito" instead of "negro"
+        query_price = row[6] #filter price, like min 300€, not prods of 5€
+        excluded_kws = row[7] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
 
         if query_title == None : continue
+        
+        #if query attr (color) exists, append it to title: iphone -> iphone amarillo
+        if query_attribute_1 != None and query_attribute_1 != '':
+            #if it's a tuple like negro,grafito. Take the 1º as attr and append it query_title and the 2º as var alt_attr_1
+            if ',' in query_attribute_1:
+                query_attribute_1 = query_attribute_1.split(',')
+                query_attribute_1 = query_attribute_1[0]
+                query_alt_attr_1 = query_attribute_1[1]
+            query_title = query_title + ' ' + query_attribute_1
 
+        if query_attribute_2 != None and query_attribute_2 != '':
+            if ',' in query_attribute_2:
+                query_attribute_2 = query_attribute_2.split(',')
+                query_attribute_2 = query_attribute_2[0]
+                query_alt_attr_2 = query_attribute_2[1]
+            query_title = query_title + ' ' + query_attribute_2
+
+        #apply deafault values in case some attr dones't exist, to append to the list without cleanly
+        if not query_alt_attr_1:
+            query_alt_attr_1 = 'deafault'
+        if not query_alt_attr_2:
+            query_alt_attr_2 = 'deafault'
+        
         print('gaps_file:',
         query_title,
         query_quantity,
@@ -82,7 +106,7 @@ def get_queries():
         query_alt_attr)
 
         #add data to list, return list
-        entry = [query_title, query_quantity, query_category, query_alt_attr, query_price, excluded_kws]
+        entry = [query_title, query_quantity, query_category, query_alt_attr_1, query_alt_attr_2, query_price, excluded_kws]
         data_queries.append(entry)
 
     entry = [ebay_id_list, data_queries]
@@ -150,16 +174,17 @@ class EbaySpiderSpider(scrapy.Spider):
             query_title = entry[0]
             query_quantity = entry[1]
             query_category = entry[2]
-            query_alt_attr = entry[3] # FI: "grafito" instead of "negro"
-            query_price = entry[4]
-            excluded_kws = entry[5]
+            query_alt_attr_1 = entry[3] # FI: "grafito" instead of "negro"
+            query_alt_attr_2 = entry[4] # FI: "grafito" instead of "negro"
+            query_price = entry[5]
+            excluded_kws = entry[6]
             excluded_kws = excluded_kws.split(',')
 
             print('-------------data_query:',
             query_title,
             query_quantity,
             query_category,
-            query_alt_attr,
+            query_alt_attr_1,
             query_price,
             excluded_kws
             )
@@ -170,7 +195,7 @@ class EbaySpiderSpider(scrapy.Spider):
 
             yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url,
                 'query_title':query_title, 'query_quantity':query_quantity, 'query_price':query_price,
-                'query_category':query_category, 'query_alt_attr':query_alt_attr,
+                'query_category':query_category, 'query_alt_attr_1':query_alt_attr_1,
                 'ebay_id_list':ebay_id_list, 'excluded_kws':excluded_kws})
 
     #ebay serp with prod links
@@ -330,7 +355,7 @@ class EbaySpiderSpider(scrapy.Spider):
         query_title = response.meta['query_title']
         query_price = response.meta['query_price']
         excluded_kws = response.meta['excluded_kws']
-
+        
         print('in serp():', '\n',
                         'start_url',start_url,'\n',
                         'ebay_id_list',ebay_id_list,'\n',

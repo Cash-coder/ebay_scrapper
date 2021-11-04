@@ -8,11 +8,15 @@ from selenium.webdriver.common.by import By
 
 
 def myfilter(query_title, serp_titles, excluded_kws):
+    
     def excluded_kw_absence(serp_title, excluded_kw):
-        flag = 0
+        '''workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue'''
+        flag = 0 
+        
         for kw in excluded_kws:
             if kw in serp_title:
-                flag +=1
+                flag +=1 # exc kw found in serp_title
+        
         if flag == 0 :
             return True # any exc kw in title
         elif flag != 0:
