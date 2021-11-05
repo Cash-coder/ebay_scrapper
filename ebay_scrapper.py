@@ -20,9 +20,23 @@ from time import sleep
 #for my_print()
 from colorama import init
 from termcolor import colored
+
 init()
 
 GAPS_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\gaps_file.xlsx"
+
+# IN GAPS_FILE
+GAPS_TITLE_COL  = 0
+GAPS_PROD_STATE = 1
+GAPS_MODEL_COL  = 2
+GAPS_ATTR_1_COL = 3
+GAPS_ATTR_2_COL = 4
+GAPS_QUANTITY   = 5
+GAPS_CATEGORY   = 6
+GAPS_EXC_KWS_COL= 7
+GAPS_MIN_PRICE  = 8
+GAPS_EBAY_ID    = 'J2'
+
 
 def my_print(text, color='green', mode='normal',**id):
     ''' red,green,yellow,blue // mode="lines" to print a list line by line in BLUE"'''
@@ -60,63 +74,86 @@ def get_queries():
     ws = wb.active
 
     #get the ebay_id_list
-    ebay_id_list = ws['F2'].value
+    ebay_id_list = ws[GAPS_EBAY_ID].value
     ebay_id_list = ebay_id_list.split(',')
     print(f'---ebay_id_list{ebay_id_list}')
 
     #get all the rows
     for row in ws.iter_rows(values_only=True, min_row=3):
-        query_title = row[0]
-        query_attribute_1 = row[1] #FI: GB
-        query_attribute_2 = row[2] #FI: color
-        query_quantity = row[3]
-        query_category = row[4]
-        query_alt_attr = row[5] # FI: "grafito" instead of "negro"
-        query_price = row[6] #filter price, like min 300€, not prods of 5€
-        excluded_kws = row[7] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
+        
+        #query_title = iphone 12 // later I add: <iphone 12 64 gb verde> // and finally I create a different var query_search_title = query_title + prod_state// this is used to include "reacondicionado" in query, but not like mandatory to pass the filter
+        query_title =   row[GAPS_TITLE_COL]
+        query_prod_state=row[GAPS_PROD_STATE]
+        query_model =   row[GAPS_MODEL_COL]
+        query_attribute_1=row[GAPS_ATTR_1_COL] #FI: GB
+        query_attribute_2=row[GAPS_ATTR_2_COL] #FI: color
+        query_quantity= row[GAPS_QUANTITY]
+        target_category= row[GAPS_CATEGORY]
+        query_price=    row[GAPS_MIN_PRICE] #filter price, like min 300€, not prods of 5€
+        excluded_kws=   row[GAPS_EXC_KWS_COL] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
 
         if query_title == None : continue
         
+        print(
+            'query_title: ',query_title, '\n',
+            'query_model: ',query_model, '\n',
+            'query_attribute_1: ',query_attribute_1, '\n',
+            'query_attribute_2: ',query_attribute_2, '\n',
+            'query_quantity: ',query_quantity, '\n',
+            'target_category: ',target_category, '\n',
+            'query_price: ',query_price, '\n',
+            'excluded_kws: ',excluded_kws, '\n'
+            'query_prod_state', query_prod_state
+        )
+
         #if query attr (color) exists, append it to title: iphone -> iphone amarillo
         if query_attribute_1 != None and query_attribute_1 != '':
+            query_title = query_model + ' ' + query_attribute_1
             #if it's a tuple like negro,grafito. Take the 1º as attr and append it query_title and the 2º as var alt_attr_1
             if ',' in query_attribute_1:
                 query_attribute_1 = query_attribute_1.split(',')
                 query_attribute_1 = query_attribute_1[0]
                 query_alt_attr_1 = query_attribute_1[1]
-            query_title = query_title + ' ' + query_attribute_1
+            else: #apply deafault values in case some attr dones't exist, to append to the list cleanly
+                query_alt_attr_1 = 'default'
 
         if query_attribute_2 != None and query_attribute_2 != '':
+            query_title = query_title + ' ' + query_attribute_2
             if ',' in query_attribute_2:
                 query_attribute_2 = query_attribute_2.split(',')
                 query_attribute_2 = query_attribute_2[0]
                 query_alt_attr_2 = query_attribute_2[1]
-            query_title = query_title + ' ' + query_attribute_2
-
-        #apply deafault values in case some attr dones't exist, to append to the list without cleanly
-        if not query_alt_attr_1:
-            query_alt_attr_1 = 'deafault'
-        if not query_alt_attr_2:
-            query_alt_attr_2 = 'deafault'
+            else:
+                query_alt_attr_2 = 'default'
         
-        print('gaps_file:',
-        query_title,
-        query_quantity,
-        query_category,
-        query_alt_attr)
-
         #add data to list, return list
-        entry = [query_title, query_quantity, query_category, query_alt_attr_1, query_alt_attr_2, query_price, excluded_kws]
+        # entry = [query_title, query_quantity, target_category, query_alt_attr_1, query_alt_attr_2, query_price, excluded_kws]
+        entry = {
+        'query_title':query_title,
+        'query_attribute_1':query_attribute_1,
+        'query_attribute_2':query_attribute_2,
+        'query_quantity':query_quantity,
+        'target_category':target_category,
+        'query_price':query_price,
+        'excluded_kws':excluded_kws,
+        'query_model':query_model,
+        'query_prod_state':query_prod_state
+        }
+
         data_queries.append(entry)
 
     entry = [ebay_id_list, data_queries]
     return entry
 
 
-def create_url(query_category, query_title):
+def create_url(query_category, query_title, query_prod_state):
+    #
+    if query_prod_state == 'not_new':
+        query_title = query_title + ' reacondicionado usado'
+    elif query_prod_state == 'new':
+        query_title = query_title + ' nuevo'
 
     #WARNING! use url with 200 results and buy only option
-
     #use one or other chunks based on target category
     if query_category == 'smartphones':
         first_url_chunk = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
@@ -158,7 +195,6 @@ class EbaySpiderSpider(scrapy.Spider):
     name = 'ebay-spider'
 
     def start_requests(self):
-        print('inside start_requests')
 
         custom_settings = {
             'USER_AGENT': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/71.0.3578.80 Chrome/71.0.3578.80 Safari/537.36'
@@ -167,57 +203,75 @@ class EbaySpiderSpider(scrapy.Spider):
         allowed_domains = ['www.ebay.es']
 
         data_entry = get_queries()
+        print('get_q')
         data_queries = data_entry[1]
         ebay_id_list = data_entry[0]
 
         for entry in data_queries:
-            query_title = entry[0]
-            query_quantity = entry[1]
-            query_category = entry[2]
-            query_alt_attr_1 = entry[3] # FI: "grafito" instead of "negro"
-            query_alt_attr_2 = entry[4] # FI: "grafito" instead of "negro"
-            query_price = entry[5]
-            excluded_kws = entry[6]
-            excluded_kws = excluded_kws.split(',')
 
-            print('-------------data_query:',
-            query_title,
-            query_quantity,
-            query_category,
-            query_alt_attr_1,
-            query_price,
-            excluded_kws
-            )
+            query_title=    entry.get('query_title')
+            query_prod_state=     entry.get('query_prod_state')
+            query_attribute_1=  entry.get('query_attribute_1')
+            query_attribute_2=  entry.get('query_attribute_2')
+            query_quantity= entry.get('query_quantity')
+            target_category=entry.get('target_category')
+            query_price=    entry.get('query_price')
+            excluded_kws=   entry.get('excluded_kws')
+            query_model=    entry.get('query_model')
 
-            query_url = create_url(query_category, query_title)
+            # query_title = entry[0]
+            # query_quantity = entry[1]
+            # target_category = entry[2]
+            # query_alt_attr_1 = entry[3] # FI: "grafito" instead of "negro"
+            # query_alt_attr_2 = entry[4] # FI: "grafito" instead of "negro"
+            # query_price = entry[5]
+            # excluded_kws = entry[6]
+            # excluded_kws = excluded_kws.split(',')
+            
+            #query url might include 'reacondicionado' but query_title don't, so it will appear in serch but it isn't mandatory to filter= prod_titles without 'reacondicionado' will pass the filter
+            query_url = create_url(target_category, query_title, query_prod_state)
             logging.info(f'this is the query url: {query_url}')
             # query_url = 'https://www.ebay.es/sch/15032/i.html?_from=R40&_nkw=iphone+11&LH_TitleDesc=0'
 
-            yield scrapy.Request(url=query_url, callback=self.serp, meta={'start_url':query_url,
-                'query_title':query_title, 'query_quantity':query_quantity, 'query_price':query_price,
-                'query_category':query_category, 'query_alt_attr_1':query_alt_attr_1,
-                'ebay_id_list':ebay_id_list, 'excluded_kws':excluded_kws})
+            url_list = []
+            print(f'declared url_list, {url_list}')
+            
+            yield scrapy.Request(url=query_url, callback=self.serp, meta={
+                'start_url':query_url,
+                'query_title':query_title, 
+                'query_quantity':query_quantity, 
+                'query_price':query_price,
+                'ebay_id_list':ebay_id_list, 
+                'excluded_kws':excluded_kws, 
+                'target_category':target_category,
+                'query_attribute_1':query_attribute_1,
+                'query_attribute_2':query_attribute_2,
+                'query_model':query_model,
+                'url_list':url_list,
+                'query_prod_state':query_prod_state
+                })
 
     #ebay serp with prod links
     def serp(self, response):
         def filter_price_title(serp_prods, query_title, query_price, ebay_id_list, excluded_kws):
             #used in filter to exclude serp_titles with excluded wk
-            def excluded_kw_absence(serp_title, excluded_kw):
+            def excluded_kw_absence(serp_title, excluded_kws):
                 '''workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue'''
                 flag = 0
-
                 for kw in excluded_kws:
-                    if kw in serp_title:
+                    if kw in serp_title.lower():
+                        print(f'flag +1 kw: {kw} in <{serp_title}>')
                         flag +=1 # exc kw found in serp_title
 
                 if flag == 0 :
+                    print(f'this title pass {serp_title}')
                     return True # any exc kw in title
                 elif flag != 0:
                     return False #some exc kw in title
 
-            #this is the output return
-            filtered_urls = []
-
+            errors_n = 0
+            url_list = response.meta['url_list']
+            
             for prod in serp_prods:
                 try:
                     prod_text = prod.get()
@@ -225,11 +279,17 @@ class EbaySpiderSpider(scrapy.Spider):
                     serp_link = prod.xpath('.//div[@class="s-item__image"]/a[@tabindex="-1"]/@href').get() #all the same ??
                     serp_id = serp_link.split('itm/')[1].split('?')[0]
                     serp_title = prod.xpath('.//h3[@class="s-item__title"]/text()').get()
+                    print('\n aaaaaaa ', serp_title, '\n')
                     serp_title = serp_title.lower()
                     serp_price = prod.xpath('.//span[@class="s-item__price"]/text()').get()
-                    serp_price = int(serp_price.split(',')[0]) #from "752,95 EUR" to 752
+                    
+                    if ',' in serp_price: #677,80
+                        serp_price = int(serp_price.split(',')[0]) #from "752,95 EUR" to 752
+                    elif '.' in serp_price: #1.250,45
+                        serp_price = int(serp_price.replace('.', ',').split(',')[0])
 
-                    # print(f'---prod: link <{serp_link}> \n id <{serp_id}> \n serp_title: {serp_title} \n serp_price:{serp_price}')
+                    # print(f'---prod: serp_link <{serp_link}> \n id <{serp_id}> \n serp_title: {serp_title} \n serp_price:{serp_price}')
+                    # print(prod_text)
                 except:
                     traceback.print_exc()
                     continue
@@ -242,17 +302,16 @@ class EbaySpiderSpider(scrapy.Spider):
                 if serp_price < query_price:
                     print(f'this price <{serp_price}> is too low for the filter price: <{query_price}>')
                     continue
-
+                
                 ### begin title filter ###
-                #filter by title, split query in words, if all words in serp_title and any excluded kws =  append the serp_link to filtered_urls
+                #filter by title, split query in words, if all words in serp_title and any excluded kws =  append the serp_link to url_list
                 s = query_title.split(' ') #split in words
                 n = len(s)
-
                 if n == 1: # title is only one word
                     if query_title in serp_title and excluded_kws not in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}, query_title <{query_title}>')
                         continue
@@ -262,14 +321,14 @@ class EbaySpiderSpider(scrapy.Spider):
                         #append only if there aren't any excluded kw in serp_title
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
                     if s[0] in serp_title and s[1] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -277,7 +336,7 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -285,23 +344,25 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
                 elif n == 5:
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
+                        print(r)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
+                            print('appended', serp_link)
                     else:
-                        print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
+                        print(f'no   title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
                 elif n == 6:
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -309,7 +370,7 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -317,7 +378,7 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -325,7 +386,7 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title and s[8] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
@@ -333,28 +394,40 @@ class EbaySpiderSpider(scrapy.Spider):
                     if s[0] in serp_title and s[1] in serp_title and s[2] in serp_title and s[3] in serp_title and s[4] in serp_title and s[5] in serp_title and s[6] in serp_title and s[7] in serp_title and s[8] in serp_title and s[9] in serp_title:
                         r = excluded_kw_absence(serp_title, excluded_kws)
                         if r:
-                            filtered_urls.append(serp_link)
+                            url_list.append(serp_link)
                     else:
                         print(f'no title match in this prod <{serp_title}>, query_title <{query_title}>')
                         continue
-
+                print('END  prod------------------------------------')
+                
                 # except Exception as e:
-                #     print('..................')
+                #     print('EXCEPTION..................')
+                #     errors_n += 1
+                #     print('errors= ', errors_n)
                 #     traceback.print_exc()
                 #     print(e)
                 #     continue
                 
-            return filtered_urls
+            print('return len',len(url_list))
+            return url_list
+            
 
         #end title filter 
         #################################################
 
-        start_url = response.meta["start_url"]
+        start_url =    response.meta["start_url"]
         ebay_id_list = response.meta['ebay_id_list']
-        query_category = response.meta['query_category']
+        query_category= response.meta['target_category']
         query_title = response.meta['query_title']
         query_price = response.meta['query_price']
-        excluded_kws = response.meta['excluded_kws']
+        excluded_kws =response.meta['excluded_kws']
+        target_category=response.meta['target_category']
+        query_attribute_1= response.meta['query_attribute_1']
+        query_attribute_2= response.meta['query_attribute_2']
+        query_model     = response.meta['query_model']
+        query_prod_state = response.meta['query_prod_state']
+
+        excluded_kws = excluded_kws.split(',')
         
         print('in serp():', '\n',
                         'start_url',start_url,'\n',
@@ -379,7 +452,15 @@ class EbaySpiderSpider(scrapy.Spider):
 
         for prod_url in filtered_prods:
             print('this is the url to pass to parse()',prod_url)
-            yield scrapy.Request(url= prod_url, callback=self.parse, meta={'start_url':start_url,'query':query_title })
+            yield scrapy.Request(url= prod_url, callback=self.parse, meta={
+                'start_url':start_url,
+                'query':query_title, 
+                'target_category':target_category,
+                'query_attribute_1':query_attribute_1,
+                'query_attribute_2':query_attribute_2,
+                'query_model':query_model,
+                'query_prod_state':query_prod_state
+                })
 
 
     def parse(self, response):
@@ -425,36 +506,57 @@ class EbaySpiderSpider(scrapy.Spider):
             div = response.xpath('id="payDet1"')
 
         def get_specs(rows):
-            ''' list of labels and list of values, zip both lists'''
-
-            values_list = []
+            ''' if there's a repeated value in the specs it will disorder the output
+            FE: if the value 8GB appears 2 times it will only be appended once to list'''
+            flag = 0
             _list = []
+            values_list = []
+            labels_list = []
             for row in rows:
                 divs = row.xpath('.//div')
-                # divs = set(divs)
-                flag = 0
                 for div in divs:
                     text = div.xpath('.//span/text()').get()
                     if text not in _list:
                         _list.append(text)
-                        print('appended: ',text)
-                # print(_list)
-                for text in _list:
-                    if flag % 2 == 0: #labels are even
-                        label = text
-                    else:
-                        value = text
 
-                    flag += 1
+            for text in _list:
+                # print(text)
+                if flag %2 == 0:
+                    labels_list.append(text)
+                    # print(flag,'is even', 'label: ',label)
+                else:
+                    values_list.append(text)
+                    # print(flag,'is odd' ,'value',value)
+                flag += 1
+            zipped = list(zip(labels_list, values_list))
+            return zipped
 
-                try:
-                    entry = [label, value]
-                    values_list.append(entry)
-                except:
-                    pass
-            print(values_list)
-            return values_list
-            
+            # values_list = []
+            # _list = []
+            # for row in rows:
+            #     divs = row.xpath('.//div')
+            #     # divs = set(divs)
+            #     flag = 0
+            #     for div in divs:
+            #         text = div.xpath('.//span/text()').get()
+            #         if text not in _list:
+            #             _list.append(text)
+            #             # print('appended: ',text)
+            #     # print(_list)
+            #     for text in _list:
+            #         if flag % 2 == 0: #labels are even
+            #             label = text
+            #         else:
+            #             value = text
+            #         flag += 1
+
+            #     try:
+            #         entry = [label, value]
+            #         values_list.append(entry)
+            #     except:
+            #         pass
+            # print(values_list)
+            # return values_list
             ####################### old specs
 
         #this doesn't work well, in vscode viewer the csv looks fine
@@ -502,14 +604,20 @@ class EbaySpiderSpider(scrapy.Spider):
 
             return shipping_price
 
-        #################   PARSE FUNCTION   ####################
-        #this is the iframe with prod_description inside, to get it it's needed another request to get the info inside the iframe
-        #scrape all the data and make another request to the iframe's url and pass all the scrapped data as meta.
-        iframe_description_url = response.xpath('//div[@id="desc_wrapper_ctr"]/div/iframe/@src').get()
+        def get_ebay_pics(pics_selector):
+            #this pics are thumbnails, in filter I change the URL pattern to access the big pics
+            pics_list = []
+            lis = pics_selector.xpath('.//li')
+            for li in lis:
+                pic = li.xpath('.//img/@src').get()
+                pics_list.append(pic)
+            return pics_list
 
+        #################   PARSE FUNCTION   ####################
         #get query url from meta, use a function to get the query text from the origin url
         start_url = response.meta["start_url"]
         query = response.meta["query"]
+        target_category = response.meta['target_category']
         #now target query should be passed in meta from the gaps_file
         # query = get_query_text(start_url)
 
@@ -534,10 +642,25 @@ class EbaySpiderSpider(scrapy.Spider):
         seller_votes = response.xpath('//span[@class="mbg-l"]/a/text()').get()
         payment_methods = response.xpath('//div[@id="payDet1"]/div/img/@alt').getall()
         # prod_specs_html = response.xpath('//div[@class="vim x-about-this-item"]/div//div[@class="ux-layout-section ux-layout-section--features"]/div//div[@class="ux-layout-section__row"]')
-        prod_specs_html = response.xpath('//div[@class="ux-layout-section__row"]')
+        query_attribute_1= response.meta['query_attribute_1']
+        query_attribute_2= response.meta['query_attribute_2']
+        query_model     = response.meta['query_model']
         # prod_specs_text = str(prod_specs_html)
+        prod_specs_html = response.xpath('//div[@class="ux-layout-section__row"]')
         prod_specs = get_specs(prod_specs_html)
         import_taxes = response.xpath('//span[@id="impchCost"]/text()').get()
+        query_prod_state = response.meta['query_prod_state']
+        
+        #this pic is always available, but not always there are more than one. Use try: to find other pics, if any pics= main
+        ebay_main_pic_url = response.xpath('//img[@id="icImg"]/@src').get()
+        try: 
+            #this pics are thumbnails, later in filter.py I change the url pattern to access the big pictures using the thumbnail URL
+            pics_selector = response.xpath('//ul[@class="lst icon"]')[1]
+            ebay_pics  = get_ebay_pics(pics_selector)
+            ebay_pics.append(ebay_main_pic_url)
+        except Exception as e:
+            ebay_pics = ebay_main_pic_url
+            print(e)
         #this is to replace breaklines that excel don't decode well
         try:
             reviews = reviews.replace('\n','')
@@ -568,28 +691,77 @@ class EbaySpiderSpider(scrapy.Spider):
         if price == None or '':
             price = get_price(price) # there're a lot of alternatives, so I made a function
 
-        # now call the iframe parser and give it all the info inside meta
-        yield Request(url=iframe_description_url, callback=self.iframe,
-                    meta={
-                        'title':title,'price':price, 'query':query,
-                        'shipping_time':shipping_time, 'variable_prod':variable_prod,
-                        'returns':returns,'shipping_price':shipping_price,
-                        'ebay_article_id':ebay_article_id,'prod_url':prod_url,
-                        'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,
-                        'category':category, 'payment_methods':payment_methods,
-                        'product_state':product_state, 'product_sold_out_text':product_sold_out_text,
-                        'served_area':served_area,'reviews':reviews, 'prod_specs':prod_specs,
-                        'import_taxes':import_taxes,
-                        })
+        #this is the iframe with prod_description inside, to get it it's needed another request to get the info inside the iframe
+        #scrape all the data and make another request to the iframe's url and pass all the scrapped data as meta.
+        #some prods don't have iframe. if iframe == none take the description and yield to finish this item
+        iframe_description_url = response.xpath('//div[@id="desc_wrapper_ctr"]/div/iframe/@src').get()
+        if iframe_description_url == None:
+            print(f'this prod does not have iframe {prod_url}')
+            yield {'title':title,'price':price, 'query':query,
+                    'shipping_time':shipping_time, 'variable_prod':variable_prod,
+                    'returns':returns,'shipping_price':shipping_price,
+                    'ebay_article_id':ebay_article_id,'prod_url':prod_url,
+                    'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,
+                    'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
+                    'product_state':product_state, #'prod_description':prod_description,
+                    'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
+                    'import_taxes':import_taxes, 
+                    'target_category':target_category,
+                    'query_attribute_1':query_attribute_1,
+                    'query_attribute_2':query_attribute_2,
+                    'query_model':query_model,
+                    'query_prod_state':query_prod_state,
+                    'ebay_pics':ebay_pics
+                     }#'related_links':related_links,
+        else: #if iframe url exist, make a request to it
+            # now call the iframe parser and give it all the info inside meta
+            yield Request(url=iframe_description_url, callback=self.iframe,
+                        meta={
+                            'title':title,
+                            'price':price, 
+                            'query':query,
+                            'shipping_time':shipping_time,
+                            'variable_prod':variable_prod,
+                            'returns':returns,
+                            'shipping_price':shipping_price,
+                            'ebay_article_id':ebay_article_id,
+                            'prod_url':prod_url,
+                            'ebay_vendor':ebay_vendor,
+                            'seller_votes':seller_votes,
+                            'category':category,
+                            'payment_methods':payment_methods,
+                            'product_state':product_state,
+                            'product_sold_out_text':product_sold_out_text,
+                            'served_area':served_area,
+                            'reviews':reviews,
+                            'prod_specs':prod_specs,
+                            'import_taxes':import_taxes,
+                            'target_category':target_category,
+                            'query_attribute_1':query_attribute_1,
+                            'query_attribute_2':query_attribute_2,
+                            'query_model':query_model,
+                            'query_prod_state':query_prod_state,
+                            'ebay_pics':ebay_pics
+                            })
 
 
     #this scrapes the prod description in iframe
     def iframe(self,response):
+        def get_prod_des_text(des_selector):
+            prod_description = ''
+            paragraphs = des_selector.xpath('.//p/text()').getall()
+            for p in paragraphs:
+                prod_description += p
+                prod_description += ' '
+                prod_description += '\n'
+            return paragraphs
 
-
+        
         #this is the prod descrption in the iframe
-        prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
-        prod_description = str(prod_description)
+        # prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
+        # prod_description = str(prod_description)
+        description_selector = response.xpath('//body/table') #extract to get the html, not the text with get()
+        prod_description = get_prod_des_text(description_selector)
 
         #get all data from meta
         title = response.meta['title']
@@ -611,6 +783,12 @@ class EbaySpiderSpider(scrapy.Spider):
         reviews = response.meta['reviews']
         product_sold_out_text = response.meta['product_sold_out_text']
         import_taxes = response.meta['import_taxes']
+        target_category= response.meta['target_category']
+        query_attribute_1= response.meta['query_attribute_1']
+        query_attribute_2= response.meta['query_attribute_2']
+        query_model     = response.meta['query_model']
+        query_prod_state = response.meta['query_prod_state']
+        ebay_pics   = response.meta['ebay_pics']
 
         yield {'title':title,'price':price, 'query':query,
         'shipping_time':shipping_time, 'variable_prod':variable_prod,
@@ -620,9 +798,14 @@ class EbaySpiderSpider(scrapy.Spider):
         'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
         'product_state':product_state, 'prod_description':prod_description,
         'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
-        'import_taxes':import_taxes,
-        #'related_links':related_links,
-         }
+        'import_taxes':import_taxes, 
+        'target_category':target_category,
+        'query_attribute_1':query_attribute_1,
+        'query_attribute_2':query_attribute_2,
+        'query_model':query_model,
+        'query_prod_state':query_prod_state,
+        'ebay_pics':ebay_pics
+         }#'related_links':related_links,
 
 
  # item.add_xpath('warranty', '')
