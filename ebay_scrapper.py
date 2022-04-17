@@ -2,6 +2,7 @@
 # scrapy crawl ebay-spider -o crawler_output.json
 # scrapy crawl ebay-spider -o output.csv -t csv -a CSV_DELIMITER="|"
 ''' output file has to be named ebay-spider-output.json '''
+
 import traceback
 import scrapy
 import csv
@@ -20,11 +21,6 @@ from time import sleep
 # logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.WARNING)
 
-#for my_print()
-from colorama import init
-from termcolor import colored
-
-init()
 
 GAPS_FILE = r"C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder\gaps_file.xlsx"
 OUTPUT_FILENAME = 'crawler_output.json' # used only to delete old output, not to create the new one. New creates from cmd when launching spider
@@ -41,27 +37,6 @@ GAPS_AVAILABLE_COLORS= 7
 GAPS_MIN_PRICE  = 8
 GAPS_EBAY_ID    = 'J2' #they're all in the same cell
 
-
-def my_print(text, color='green', mode='normal',**id):
-    ''' red,green,yellow,blue // mode="lines" to print a list line by line in BLUE"'''
-
-    if mode == 'normal':
-        if color == 'red':
-            print(colored(id, 'white','on_red'))
-            print(colored(text, 'white','on_red'))
-        elif color == 'green':
-            print(colored(id, 'white','on_green'),sep="\n")
-            print(colored(text, 'white','on_green'),sep="\n")
-        elif color == 'yellow':
-            print(colored(id, 'blue','on_yellow'))
-            print(colored(text, 'blue','on_yellow'))
-        elif color == 'blue':
-            print(colored(id, 'white','on_blue'))
-            print(colored(text, 'white','on_blue'))
-
-    elif mode=='lines':
-        for item in text:
-            print(colored(item, 'white','on_blue'))
 
 #used to avoid process products we already have
 def  get_ebay_id_list():
@@ -85,11 +60,6 @@ def get_queries():
     by the scrapper """
     from openpyxl import load_workbook
 
-    data_queries = []
-
-    # global first_chunk
-    # global last_chunk
-
     #gaps_file
     wb = load_workbook(GAPS_FILE)
     ws = wb.active
@@ -112,17 +82,17 @@ def get_queries():
 
         if query_title == None : continue
         
-        print(
-            'query_title: ',query_title, '\n',
-            'query_model: ',query_model, '\n',
-            'query_attribute_1: ',query_attribute_1, '\n',
-            'query_attribute_2: ',query_attribute_2, '\n',
-            'query_quantity: ',query_quantity, '\n',
-            'target_category: ',target_category, '\n',
-            'query_price: ',query_price, '\n',
-            'available_colors: ',available_colors, '\n'
-            'query_prod_state', query_prod_state
-        )
+        # print(
+        #     'query_title: ',query_title, '\n',
+        #     'query_model: ',query_model, '\n',
+        #     'query_attribute_1: ',query_attribute_1, '\n',
+        #     'query_attribute_2: ',query_attribute_2, '\n',
+        #     'query_quantity: ',query_quantity, '\n',
+        #     'target_category: ',target_category, '\n',
+        #     'query_price: ',query_price, '\n',
+        #     'available_colors: ',available_colors, '\n'
+        #     'query_prod_state', query_prod_state
+        # )
 
         #OLD when I targeted for colors, now I target only for GB and apply colors later
         #if query attr (color) exists, append it to title: iphone -> iphone amarillo
@@ -145,14 +115,6 @@ def get_queries():
         #     else:
         #         query_alt_attr_2 = 'default'
 
-        #NEW target only for GB if they're specified
-        # if query_attribute_1 != None:
-            # query_title = query_model + ' ' + query_attribute_1
-        # else: #if attr1 not specified, search just the model
-            # query_title = query_model
-
-        #add data to list, return list
-        # entry = [query_title, query_quantity, target_category, query_alt_attr_1, query_alt_attr_2, query_price, excluded_kws]
         entry = {
         'query_title':query_title,
         'query_attribute_1':query_attribute_1,
@@ -165,30 +127,28 @@ def get_queries():
         'query_prod_state':query_prod_state
         }
 
-        # data_queries.append(entry)
-
-    # entry = [ebay_id_list, data_queries]
-    # return entry
         yield entry
 
 
-def create_url(query_category, query_title, query_prod_state):
+def create_url(query_title, query_prod_state):
     # in gaps file is specified new or not new. Include some kws in the query to maximize results fo each
     if query_prod_state == 'not_new':
         query_title = query_title + ' usado'
     elif query_prod_state == 'new':
         query_title = query_title + ' nuevo'
     
-    
     # NEW using search instead of picking categories
     first_chunk     = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
     formatted_query = query_title.replace(' ','+')
-    second_chunk    = '&_sacat=0&rt=nc&LH_BIN=1'
+    second_chunk    = '&_sacat=0&rt=nc&LH_BIN=1&_ipg=200'
+    # second_chunk    = '&_sacat=0&rt=nc&LH_BIN=1'
 
     query_url = first_chunk + formatted_query + second_chunk
     print(f'------------- {query_url}')
 
     #WARNING! use url with 200 results and buy only option
+    
+    #OLD: url based on ebay category
     #use one or other chunks based on target category
     # if query_category == 'smartphones':
     #     first_url_chunk = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
@@ -198,19 +158,15 @@ def create_url(query_category, query_title, query_prod_state):
 
 def delete_old_output():
     import os
-    import shutil
 
     if os.path.exists(OUTPUT_FILENAME):
         os.remove(OUTPUT_FILENAME) # one file at a time
         print('deleted old output')
 
 
-#####################              #####################
 #####################    CRAWLER   #####################
 
-# class EbaySpiderSpider(CrawlSpider):
 class EbaySpiderSpider(scrapy.Spider):
-    print('class')
     name = 'ebay-spider'
     
     #delete old scrapper_ouput.json
@@ -222,13 +178,13 @@ class EbaySpiderSpider(scrapy.Spider):
             'USER_AGENT': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/71.0.3578.80 Chrome/71.0.3578.80 Safari/537.36'
         }
 
-        allowed_domains = ['www.ebay.es']
+        # allowed_domains = ['www.ebay.es']
 
         data_entries = get_queries()
         ebay_id_list = get_ebay_id_list()
 
         for entry in data_entries:
-            print(entry)
+            # print(entry)
 
             query_title=    entry.get('query_title')
             
@@ -245,23 +201,11 @@ class EbaySpiderSpider(scrapy.Spider):
             available_colors=   entry.get('available_colors')
             query_model=    entry.get('query_model')
 
-            # query_title = entry[0]
-            # query_quantity = entry[1]
-            # target_category = entry[2]
-            # query_alt_attr_1 = entry[3] # FI: "grafito" instead of "negro"
-            # query_alt_attr_2 = entry[4] # FI: "grafito" instead of "negro"
-            # query_price = entry[5]
-            # available_colors = entry[6]
-            # available_colors = available_colors.split(',')
-            
             #query url might include 'reacondicionado' but query_title don't, so it will appear in serch but it isn't mandatory to filter= prod_titles without 'reacondicionado' will pass the filter
-            query_url = create_url(target_category, query_title, query_prod_state)
+            query_url = create_url(query_title, query_prod_state)
             logging.info(f'this is the query url: {query_url}')
             # query_url = 'https://www.ebay.es/sch/15032/i.html?_from=R40&_nkw=iphone+11&LH_TitleDesc=0'
 
-            url_list = []
-            print(f'declared url_list, {url_list}')
-            
             yield scrapy.Request(url=query_url, callback=self.serp, meta={
                 'start_url':query_url,
                 'query_title':query_title, 
@@ -273,7 +217,6 @@ class EbaySpiderSpider(scrapy.Spider):
                 'query_attribute_1':query_attribute_1,
                 'query_attribute_2':query_attribute_2,
                 'query_model':query_model,
-                'url_list':url_list,
                 'query_prod_state':query_prod_state
                 })
 
@@ -281,7 +224,6 @@ class EbaySpiderSpider(scrapy.Spider):
     def serp(self, response):
 
         def filter_price_title(serp_prods, query_title, query_price, ebay_id_list):
-            #for name, create excluded kws -> iphone 11 pro -> exc_kws = max, plus....
 
             #generate excluded kws, returns a dict with a list of kws to avoid. Iphone 11 != Iphone 11 pro 
             def get_excluded_kws(target_title):
@@ -304,7 +246,7 @@ class EbaySpiderSpider(scrapy.Spider):
 
             #used in filter to exclude serp_titles with excluded wk
             def excluded_kw_absence(serp_title, excluded_kws):
-                '''workaround to exclude kw, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue'''
+                '''filter excluding kws, iphone 12 pro != iphone 12 // if excluded kw in serp_title: continue'''
                 
                 flag = 0
                 for kw in excluded_kws:
@@ -326,10 +268,6 @@ class EbaySpiderSpider(scrapy.Spider):
                 # if that xpath doesn't work, try another
                 if serp_price == None:
                     serp_price = prod.xpath('.//span[@class="ITALIC"]/text()').get()
-                    # soup= bs(li.extract())
-                    # print(soup.prettify())
-                
-                # print(f'serp_price: {serp_price}')
 
                 # from 1.248,55 to 1248
                 if '.' in serp_price and ',' in serp_price:
@@ -368,7 +306,6 @@ class EbaySpiderSpider(scrapy.Spider):
             
             ################ End func declarations
             errors_n = 0
-            # url_list = response.meta['url_list']
             url_list = []
             
             target_model = response.meta['query_model']
@@ -410,13 +347,6 @@ class EbaySpiderSpider(scrapy.Spider):
                         print(f'bad serps title: {number_bad_serp_link}')
                         continue
                     
-                    # if ',' in serp_price: #677,80
-                    #     serp_price = int(serp_price.split(',')[0]) #from "752,95 EUR" to 752
-                    # elif '.' in serp_price: #1.250,45
-                    #     serp_price = int(serp_price.replace('.', ',').split(',')[0])
-
-                    # print(f'---prod: serp_link <{serp_link}> \n id <{serp_id}> \n serp_title: {serp_title} \n serp_price:{serp_price}')
-                    # print(prod_text)
                 except:
                     traceback.print_exc()
                     continue
@@ -430,38 +360,15 @@ class EbaySpiderSpider(scrapy.Spider):
                     print(f'this price <{serp_price}> is too low for the filter price: <{query_price}>')
                     continue
                 
-                
                 ##### begins title filter #####
-
-                # IF IPAD IN QUERY_TITLE, USE IPAD FUNC
-                # ELIF SMARTWATCH ...
-                # ELSE: NORMAL FUNC
-
-                # standar models to signal, in the func you expand all the options
-                
-                # translate titles before process ?
-                    # one bog translate instead of many littles
-                    # not same origin language!
-
-                # if model == pro 12.9 5gen:
-                    # if X or Y match
-                    # if Z or A match
-                    
-                    #  if excluded kw doesnt' match
-                    # accept
-                
                 #filter by title, split query in words, if all words in serp_title and any excluded kws =  yield the serp_link 
                 filtered_link = title_filter(query_title, serp_title, serp_link)
-
                 if filtered_link:
                     url_list.append(filtered_link)
             
             return url_list
 
-            #     
-        #end title filter 
-        #################################################
-
+        ### end title filter ###
         start_url =    response.meta["start_url"]
         ebay_id_list = response.meta['ebay_id_list']
         query_category= response.meta['target_category']
@@ -474,18 +381,15 @@ class EbaySpiderSpider(scrapy.Spider):
         query_prod_state = response.meta['query_prod_state']
         available_colors = response.meta['available_colors']
 
-        # excluded_kws =response.meta['excluded_kws']
-        # excluded_kws = excluded_kws.split(',')
-        
-        print('in serp():', '\n',
-                        'start_url',start_url,'\n',
-                        'ebay_id_list',ebay_id_list,'\n',
-                        'query_category',query_category,'\n',
-                        'query_title',query_title,'\n',
-                        'query_price',query_price,'\n',
-                        'available_colors', available_colors, '\n'
-                        # 'excluded_kws', excluded_kws,'\n'
-                        )
+        # print('in serp():', '\n',
+        #                 'start_url',start_url,'\n',
+        #                 'ebay_id_list',ebay_id_list,'\n',
+        #                 'query_category',query_category,'\n',
+        #                 'query_title',query_title,'\n',
+        #                 'query_price',query_price,'\n',
+        #                 'available_colors', available_colors, '\n'
+        #                 # 'excluded_kws', excluded_kws,'\n'
+        #                 )
 
         #get product  webelements from ebay serps
         serp_prods = response.xpath('//li[@class="s-item s-item__pl-on-bottom"]')
@@ -495,13 +399,10 @@ class EbaySpiderSpider(scrapy.Spider):
         filtered_prods = filter_price_title(serp_prods, query_title, query_price, ebay_id_list)
         
         #for some reason there're duplicateds, set the list
-        print('before', len(filtered_prods))
         filtered_prods = set(filtered_prods)
         print('filtered_prods: ',len(filtered_prods))
-        # for u in filtered_prods: print('bbb',u)
 
         for prod_url in filtered_prods:
-            # print('this is the url to pass to parse()',prod_url)
             yield scrapy.Request(url= prod_url, callback=self.parse, meta={
                 'start_url':start_url,
                 'query':query_title, 
@@ -515,24 +416,6 @@ class EbaySpiderSpider(scrapy.Spider):
 
 
     def parse(self, response):        
-
-        def get_category(breadcrumbs):
-            from bs4 import BeautifulSoup as bs4
-            #breadcrumbs = "<li class=\"vi-VR-brumblnkLst vi-VR-brumb-hasNoPrdlnks\" id=\"vi-VR-brumb-lnkLst\">\n\t\t\t<ul role=\"list\" aria-label=\"En la categoría: \" itemscope=\"\" itemtype=\"https://schema.org/BreadcrumbList\">\n\t\t\t\t\t<li role=\"listitem\" itemprop=\"itemListElement\" itemscope=\"\" itemtype=\"https://schema.org/ListItem\" class=\"bc-w\">\n\t\t\t\t\t\t\t\t\t<a itemprop=\"item\" _sp=\"p2047675.l2706\" href=\"https://www.ebay.es/b/Consolas-y-videojuegos-/1249\" class=\"thrd\">\n\t\t\t\t\t\t\t\t\t\t<span itemprop=\"name\">Consolas y videojuegos</span>\n\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t<meta itemprop=\"position\" content=\"1\">\n\t\t\t\t\t\t\t\t</li>\n\t\t\t\t\t\t\t\t<li aria-hidden=\"true\">&gt;</li>\n\t\t\t\t\t\t\t\t<li role=\"listitem\" itemprop=\"itemListElement\" itemscope=\"\" itemtype=\"https://schema.org/ListItem\" class=\"bc-w\">\n\t\t\t\t\t\t\t\t\t<a itemprop=\"item\" _sp=\"p2047675.l2706\" href=\"https://www.ebay.es/b/Videojuegos-/139973\" class=\"scnd\">\n\t\t\t\t\t\t\t\t\t\t<span itemprop=\"name\">Videojuegos</span>\n\t\t\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t\t\t<meta itemprop=\"position\" content=\"2\">\n\t\t\t\t\t\t\t\t</li>\n\t\t\t\t\t\t\t\t<li>&gt;</li>\n\t\t\t\t\t\t<li itemprop=\"itemListElement\" itemscope=\"\" itemtype=\"https://schema.org/ListItem\" class=\"bc-w\">\n\t\t\t\t\t\t\t<a itemprop=\"item\" _sp=\"p2047675.l2644\" href=\"https://www.ebay.es/p/25031842995\" title=\"Ver más Days Gone (Sony PlayStation 4, 2019)\">\n\t\t\t\t\t\t\t\t<span itemprop=\"name\">Ver más Days Gone (Sony PlayStation 4, 2019)</span>\n\t\t\t\t\t\t\t</a>\n\t\t\t\t\t\t\t<meta itemprop=\"position\" content=\"1\">\n\t\t\t\t\t\t</li>\n\t\t\t\t\t</ul>\n\t\t\t</li>"
-            try:
-                #extract html
-                breadcrumbs = response.xpath('//ul[@id="bc"]/li[4]').extract_first()
-                #parse html
-                soup = bs4(breadcrumbs, 'html.parser')
-                #find all the links
-                raw = soup.find_all('a')[-2] #-2 because it's allways the penultimate a
-                link = raw.get('href')
-                #take only text, avoid https:/....
-                category_name = link.split('/')[-2] #split using '/' and take only the text of the link
-                category_name = category_name.replace('-','')
-                return category_name
-            except Exception as e:
-                print(e)
 
         #alternative func to get the specs (used as backup solution for the current func)
         def get_specs_with_bs(response):
@@ -550,42 +433,7 @@ class EbaySpiderSpider(scrapy.Spider):
             specs = specs_bs_separated.replace('&& &&','\n').replace('&&',' ').replace('  ','')
 
             return specs
-        # def get_specs(divs):
-        #     ''' if there's a repeated value in the specs it will disorder the output
-        #     FE: if the value 8GB appears 2 times it will only be appended once to list, disordering the other elements'''
-        #     try:
-        #         divs = response.xpath('//div[@class="ux-layout-section__row"]')#.extract()
-        #         des = '' #description or specs
-        #         flag = 0
-        #         for div in divs:
-        #             labels = div.xpath('.//div[@class="ux-labels-values__labels"]/div/div/span/text()').getall()
-        #             value_state = div.xpath('.//div[@class="ux-labels-values__values-content"]/div/span/span/span/text()').get()
-        #             values = div.xpath('.//div[@class="ux-labels-values__values-content"]/div/span/text()').getall()
-
-        #             if flag == 0:
-        #                 entry1 = labels[0] +' '+ value_state + '\n'+ '\n'
-        #                 entry2 = labels[1] +' '+ values[0] + '\n'+ '\n'
-
-        #                 des += entry1
-        #                 des += entry2
-        #                 flag += 1
-        #             else:
-        #                 try:
-        #                     entry1 = labels[0] +' '+ values[0] + '\n' + '\n'
-        #                     entry2 = labels[1] +' '+ values[1] + '\n' + '\n'
-        #                     des += entry1
-        #                     des += entry2
-        #                 except: pass
-        #         return des
-        #     except IndexError:
-        #         print(f'get_specs() error, using alternative func')
-        #         specs = get_specs_with_bs(response)
-        #         return specs
-
-        #     except Exception as e:
-        #         print(f'error in get_specs() {e}')
-        #         traceback.print_exc()
-
+        
         
         #this doesn't work well, in vscode viewer the csv looks fine
         #in excel csv viewer looks with bugs, strange breaklines
@@ -597,6 +445,7 @@ class EbaySpiderSpider(scrapy.Spider):
             #     related_prod_list.append(prod)
             return related_links
 
+        # if the 1º used xpath fails, use a function to try all possible xpaths
         def get_price(price):
             if price == None:    #notice is different convB..
                 price = response.xpath('//span[@id="convbidPrice"]/text()').get()
@@ -624,8 +473,8 @@ class EbaySpiderSpider(scrapy.Spider):
                 shipping_price = response.xpath('//span[@id="fshippingCost"]/span/text()').get()
             return shipping_price
 
+        #this pics are thumbnails, in filter I change the URL pattern to access the big pics
         def get_ebay_pics(pics_selector):
-            #this pics are thumbnails, in filter I change the URL pattern to access the big pics
             pics_list = []
             lis = pics_selector.xpath('.//li')
             for li in lis:
@@ -633,7 +482,7 @@ class EbaySpiderSpider(scrapy.Spider):
                 pics_list.append(pic)
             return pics_list
 
-        # product returns options
+        # product returns options: 'Devoluciones 30 días'
         def get_returns(response):
             from bs4 import BeautifulSoup as bs
 
@@ -651,51 +500,32 @@ class EbaySpiderSpider(scrapy.Spider):
 
 
         #################   PARSE FUNCTION   ####################
-        # start_url = response.meta["start_url"]
         title = response.xpath('//h1[@class="x-item-title__mainTitle"]/span/text()').get()
         query = response.meta["query"]
         target_category = response.meta['target_category']
-        # prod_specs_html = response.xpath('//div[@class="vim x-about-this-item"]/div//div[@class="ux-layout-section ux-layout-section--features"]/div//div[@class="ux-layout-section__row"]')
         query_attribute_1= response.meta['query_attribute_1']
         query_attribute_2= response.meta['query_attribute_2']
         query_model     = response.meta['query_model']
         query_prod_state = response.meta['query_prod_state']
         available_colors = response.meta['available_colors']
         
-        #now target query should be passed in meta from the gaps_file
-        # query = get_query_text(start_url)
-
-        #miscelaneus prod data; All Except prod_description
         variable_prod    = response.xpath('//span[@id="sel-msku-variation"]').get()
-        # title    = response.xpath('//h1[@itemprop="name"]/text()').extract_first()
-        
-        # returns  = response.xpath('//span[@id="vi-ret-accrd-txt"]/text()').extract_first()
-        # returns  = response.xpath('//span[@id="vi-ret-accrd-txt"]/text()').extract_first()
-        # '//span[contains(text(),"Devoluciones")]'
-        returns = get_returns(response)
-
         ebay_article_id  = response.xpath('//div[@id="descItemNumber"]/text()').extract_first()
         prod_url     = response.url
-        category     = get_category(response) #taking the last link in breadcrumbs
-        # ebay_vendor  = response.xpath('//span[@class="mbg-nw"]/text()').extract_first()
         ebay_vendor = response.xpath('//span[@class="ux-textspans ux-textspans--PSEUDOLINK ux-textspans--BOLD"]/text()').get()
-        # product_state    = response.xpath('//div[@id="vi-itm-cond"]/text()').extract_first()
         product_state = response.xpath('//div[@class="d-item-condition-text"]//span/text()').get()
-        #related_links = get_related_links(response) #not using because of a weird bug
         product_sold_out_text = response.xpath('//span[contains(text(),"Este artículo está agotado")]')
         shipping_price= response.xpath('//span[@class="vi-fnf-ship-txt "]/strong/text()').get()
-        #if the prod is not from Spain, the xpath for shippment changes
         #shipping_time = response.xpath('//span[@class="vi-acc-del-range"]/b/text()').extract_first()
         shipping_time = response.xpath('//span[@class="vi-del-ship-txt"]/strong[@class="vi-acc-del-range"]/text()').extract_first()
+        #if the prod is not from Spain, the xpath for shippment changes
         # when prod is not in spain, this identifies if its shipped to spain or not
         served_area = response.xpath('//span[@itemprop="areaServed"]/text()').get()
         reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()
-        # seller_votes = response.xpath('//span[@class="mbg-l"]/a/text()').get()
         seller_votes = response.xpath('//a/span[@class="ux-textspans ux-textspans--PSEUDOLINK"]/text()').getall()[1]
-        
-        payment_methods = response.xpath('//div[@class="ux-labels-values__values-cntent"]//span/@aria-label').getall()
-        # payment_methods = response.xpath('//div[@id="payDet1"]/div/img/@alt').getall()
-
+        payment_methods = pay = response.xpath('//div[@class="ux-labels-values__values-content"]//span/@aria-label').getall()
+        #translated later in filter.py
+        prod_specs_html = response.xpath('//div[@class="ux-layout-section__row"]')
         import_taxes = response.xpath('//span[@id="impchCost"]/text()').get()
 
         subtitle = response.xpath('//div[@id="subTitle"]/span/text()').get()
@@ -704,17 +534,9 @@ class EbaySpiderSpider(scrapy.Spider):
         if subtitle == None:
             subtitle = response.xpath('//div[@id="subTitle"]/text()').get()
         
-        # try:
-        #     subtitle = subtitle.text
-        # except AttributeError: # NoneType has no attr  text
-        #     pass
+        returns = get_returns(response)
 
-        #translated later in filter.py
-        prod_specs_html = response.xpath('//div[@class="ux-layout-section__row"]')
-        # prod_specs = get_specs(prod_specs_html)
         prod_specs = get_specs_with_bs(prod_specs_html)
-        
-        # prod_specs_text = str(prod_specs_html)
         
         #this pic is always available, but not always there are more than one. Use try: to find other pics, if any pics= main
         ebay_main_pic_url = response.xpath('//img[@id="icImg"]/@src').get()
@@ -726,8 +548,7 @@ class EbaySpiderSpider(scrapy.Spider):
         except Exception as e:
             ebay_pics = ebay_main_pic_url
             print(e)
-        #this is to replace breaklines that excel don't decode well
-        #possible fix: when launching the spider, setting csv output, linebreak = '\n' in arguments
+
         try:
             reviews = reviews.replace('\n','')
         except:
@@ -738,7 +559,6 @@ class EbaySpiderSpider(scrapy.Spider):
         except:
             pass
 
-        #location = response.xpath('//div[@class="iti-eu-bld-gry "]/span/text()').extract()
         article_location = response.xpath('//span[@itemprop="availableAtOrFrom"]/text()').get()
 
         #depending on article location shows on price or another
@@ -760,26 +580,7 @@ class EbaySpiderSpider(scrapy.Spider):
         #some prods don't have iframe. if iframe == none take the description and yield to finish this item
         iframe_description_url = response.xpath('//div[@id="desc_wrapper_ctr"]/div/iframe/@src').get()
         if iframe_description_url == None:
-            iframe_description_url = 'not present'
-            # print(f'this prod does not have iframe {prod_url}')
-            # yield {'title':title,'price':price, 'query':query,
-            #         'shipping_time':shipping_time, 'variable_prod':variable_prod,
-            #         'returns':returns,'shipping_price':shipping_price,
-            #         'ebay_article_id':ebay_article_id,'prod_url':prod_url,
-            #         'ebay_vendor':ebay_vendor,'seller_votes':seller_votes,
-            #         'category':category, 'payment_methods':payment_methods,'prod_specs':prod_specs,
-            #         'product_state':product_state, #'prod_description':prod_description,
-            #         'served_area':served_area,'reviews':reviews,'product_sold_out_text':product_sold_out_text,
-            #         'import_taxes':import_taxes, 
-            #         'target_category':target_category,
-            #         'query_attribute_1':query_attribute_1,
-            #         'query_attribute_2':query_attribute_2,
-            #         'query_model':query_model,
-            #         'query_prod_state':query_prod_state,
-            #         'ebay_pics':ebay_pics,
-            #         'available_colors':available_colors,
-            #         'subtitle':subtitle
-            #          }#'related_links':related_links,
+            iframe_description_url = 'not present' # set it this way to yield it in the output
         else: #if iframe url exist, make a request to it
             # now call the iframe parser and give it all the info inside meta
             yield Request(url=iframe_description_url, callback=self.iframe,
@@ -795,7 +596,6 @@ class EbaySpiderSpider(scrapy.Spider):
                             'prod_url':prod_url,
                             'ebay_vendor':ebay_vendor,
                             'seller_votes':seller_votes,
-                            'category':category,
                             'payment_methods':payment_methods,
                             'product_state':product_state,
                             'product_sold_out_text':product_sold_out_text,
@@ -817,23 +617,7 @@ class EbaySpiderSpider(scrapy.Spider):
 
     #this scrapes the prod description in iframe
     def iframe(self,response):
-        def get_prod_des_text(des_selector):
-            prod_description = ''
-            paragraphs = des_selector.xpath('.//p/text()').getall()
-            for p in paragraphs:
-                prod_description += p
-                prod_description += ' '
-                prod_description += '\n'
-            return paragraphs
-
         
-        #this is the prod descrption in the iframe
-        # prod_description = response.xpath('//body').extract() #extract to get the html, not the text with get()
-        # prod_description = str(prod_description)
-        # description_selector = response.xpath('//body/table/text()') #extract to get the html, not the text with get()
-        # prod_description = get_prod_des_text(description_selector)
-        # prod_description = response.xpath('//body/table/text()').getall() #extract to get the html, not the text with get()
-        # prod_description = response.xpath('//div[@id="ds_div"]').extract()
         prod_description = response.xpath('//div[@id="ds_div"]').extract()
         if prod_description == None:
             prod_description = 'not present'
@@ -850,7 +634,6 @@ class EbaySpiderSpider(scrapy.Spider):
         prod_url     =  response.meta['prod_url']
         ebay_vendor  =  response.meta['ebay_vendor']
         seller_votes =  response.meta['seller_votes']
-        category     =  response.meta['category']
         payment_methods=response.meta['payment_methods']
         product_state  =response.meta['product_state']
         prod_specs   =  response.meta['prod_specs']
@@ -868,13 +651,12 @@ class EbaySpiderSpider(scrapy.Spider):
         subtitle         =  response.meta['subtitle']
         iframe_description_url = response.meta['iframe_description_url']
         
-
         yield {'title':title,'price':price, 'query':query,
         'shipping_time':shipping_time,     'variable_prod':variable_prod,
         'returns':returns,                'shipping_price':shipping_price,
         'ebay_article_id':ebay_article_id,'prod_url':prod_url,
         'ebay_vendor':ebay_vendor,      'seller_votes':seller_votes,
-        'category':category,            'payment_methods':payment_methods,
+        'payment_methods':payment_methods,
         'prod_specs':prod_specs,        'product_state':product_state, 
         'prod_description':prod_description,
         'served_area':served_area,      'reviews':reviews,
@@ -889,7 +671,7 @@ class EbaySpiderSpider(scrapy.Spider):
         'available_colors':available_colors,
         'subtitle':subtitle,
         'iframe_description_url':iframe_description_url
-         }#'related_links':related_links,
+         }
 
 
  # item.add_xpath('warranty', '')
@@ -899,7 +681,6 @@ class EbaySpiderSpider(scrapy.Spider):
         # item.add_xpath('score', './/div[@class="kVNDLtqL"]/span/text()',
         # MapCompose(self.quitarDolar))
         # # Utilizo Map Compose con funciones anonimas
-        # # PARA INVESTIGAR: Que son las funciones anonimas en Python?
         # item.add_xpath('descripcion', '//div[@class="ui_column  "]//div[@class="cPQsENeY"]//text()', # //text() nos permite obtener el texto de todos los hijos
         # MapCompose(lambda i: i.replace('\n', '').replace('\r', '')))
 
