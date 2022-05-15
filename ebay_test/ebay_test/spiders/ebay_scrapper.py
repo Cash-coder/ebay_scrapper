@@ -1,7 +1,8 @@
+# (scrapy crawl ebay_tester -o crawler_output.json) -and (move crawler_output.json "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder" -force)
 # cd "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\ebay\ebay_test\ebay_test\spiders"
-# scrapy crawl ebay_tester -o crawler_output.json
 # scrapy crawl ebay_tester -o crawler_output.json > log.txt
 # move crawler_output.json "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder" -force
+
 
 import traceback
 import scrapy
@@ -33,7 +34,7 @@ GAPS_ATTR_1_COL = 3
 GAPS_ATTR_2_COL = 4
 GAPS_QUANTITY   = 5
 GAPS_CATEGORY   = 6
-GAPS_AVAILABLE_COLORS= 7
+GAPS_MEAN_PRICE = 7
 GAPS_MIN_PRICE  = 8
 GAPS_EBAY_ID    = 'J2' #they're all in the same cell
 
@@ -70,15 +71,15 @@ def get_queries():
     #get all the rows
     for row in ws.iter_rows(values_only=True, min_row=3):
         #query_title = iphone 12 // later I add: <iphone 12 64 gb verde> // and finally I create a different var query_search_title = query_title + prod_state// this is used to include "reacondicionado" in query, but not like mandatory to pass the filter
-        query_title =   row[GAPS_TITLE_COL]
-        query_prod_state=row[GAPS_PROD_STATE]
-        query_model =   row[GAPS_MODEL_COL]
-        query_attribute_1=row[GAPS_ATTR_1_COL] #FI: GB
-        query_attribute_2=row[GAPS_ATTR_2_COL] #FI: color
-        query_quantity= row[GAPS_QUANTITY]
-        target_category= row[GAPS_CATEGORY]
-        query_price=    row[GAPS_MIN_PRICE] #filter price, like min 300€, not prods of 5€
-        available_colors=   row[GAPS_AVAILABLE_COLORS] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
+        query_title =  row[GAPS_TITLE_COL]
+        query_prod_state  = row[GAPS_PROD_STATE]
+        query_model       = row[GAPS_MODEL_COL]
+        query_attribute_1 = row[GAPS_ATTR_1_COL] #FI: GB
+        query_attribute_2 = row[GAPS_ATTR_2_COL] #FI: color
+        query_quantity    = row[GAPS_QUANTITY]
+        target_category   = row[GAPS_CATEGORY]
+        query_price       = row[GAPS_MIN_PRICE] #filter price, like min 300€, not prods of 5€
+        mean_price        = row[GAPS_MEAN_PRICE] # FI: iphone 12 != iphone 12 PRO // exclue those that has MAX or PRO in title
 
         if query_title == None : continue
         
@@ -90,7 +91,7 @@ def get_queries():
         #     'query_quantity: ',query_quantity, '\n',
         #     'target_category: ',target_category, '\n',
         #     'query_price: ',query_price, '\n',
-        #     'available_colors: ',available_colors, '\n'
+        #     'mean_price: ',mean_price, '\n'
         #     'query_prod_state', query_prod_state
         # )
 
@@ -122,7 +123,7 @@ def get_queries():
         'query_quantity':query_quantity,
         'target_category':target_category,
         'query_price':query_price,
-        'available_colors':available_colors,
+        'mean_price':mean_price,
         'query_model':query_model,
         'query_prod_state':query_prod_state
         }
@@ -204,7 +205,7 @@ class EbaySpiderSpider(scrapy.Spider):
             query_quantity= entry.get('query_quantity')
             target_category=entry.get('target_category')
             query_price=    entry.get('query_price')
-            available_colors=   entry.get('available_colors')
+            mean_price=   entry.get('mean_price')
             query_model=    entry.get('query_model')
 
             #query url might include 'reacondicionado' but query_title don't, so it will appear in serch but it isn't mandatory to filter= prod_titles without 'reacondicionado' will pass the filter
@@ -218,7 +219,7 @@ class EbaySpiderSpider(scrapy.Spider):
                 'query_quantity':query_quantity, 
                 'query_price':query_price,
                 'ebay_id_list':ebay_id_list, 
-                'available_colors':available_colors, 
+                'mean_price':mean_price, 
                 'target_category':target_category,
                 'query_attribute_1':query_attribute_1,
                 'query_attribute_2':query_attribute_2,
@@ -417,7 +418,7 @@ class EbaySpiderSpider(scrapy.Spider):
         query_attribute_2= response.meta['query_attribute_2']
         query_model     = response.meta['query_model']
         query_prod_state = response.meta['query_prod_state']
-        available_colors = response.meta['available_colors']
+        mean_price = response.meta['mean_price']
 
         # print('in serp():', '\n',
         #                 'start_url',start_url,'\n',
@@ -425,7 +426,7 @@ class EbaySpiderSpider(scrapy.Spider):
         #                 'query_category',query_category,'\n',
         #                 'query_title',query_title,'\n',
         #                 'query_price',query_price,'\n',
-        #                 'available_colors', available_colors, '\n'
+        #                 'mean_price', mean_price, '\n'
         #                 # 'excluded_kws', excluded_kws,'\n'
         #                 )
 
@@ -449,7 +450,7 @@ class EbaySpiderSpider(scrapy.Spider):
                 'query_attribute_2':query_attribute_2,
                 'query_model':query_model,
                 'query_prod_state':query_prod_state,
-                'available_colors':available_colors,
+                'mean_price':mean_price,
                 })
 
 
@@ -571,7 +572,9 @@ class EbaySpiderSpider(scrapy.Spider):
             
             if subtitle:
                 return subtitle
-            
+        
+        def check_availability():
+            pass
 
         #################   PARSE FUNCTION   ####################
         title = response.xpath('//h1[@class="x-item-title__mainTitle"]/span/text()').get()
@@ -581,7 +584,7 @@ class EbaySpiderSpider(scrapy.Spider):
         query_attribute_2= response.meta['query_attribute_2']
         query_model      = response.meta['query_model']
         query_prod_state = response.meta['query_prod_state']
-        available_colors = response.meta['available_colors']
+        mean_price = response.meta['mean_price']
         
         variable_prod    = response.xpath('//span[@id="sel-msku-variation"]').get()
         ebay_article_id  = response.xpath('//div[@id="descItemNumber"]/text()').extract_first()
@@ -596,7 +599,7 @@ class EbaySpiderSpider(scrapy.Spider):
         served_area = response.xpath('//span[@itemprop="areaServed"]/text()').get()
         reviews = response.xpath('//div[@class="reviews"]/text()').extract_first()
         seller_votes = response.xpath('//div[@class="ux-seller-section__item--seller"]//a/span[@class="ux-textspans ux-textspans--PSEUDOLINK"]/text()').get()
-        payment_methods = pay = response.xpath('//div[@class="ux-labels-values__values-content"]//span/@aria-label').getall()
+        payment_methods = response.xpath('//div[@class="ux-labels-values__values-content"]//span/@aria-label').getall()
         #translated later in filter.py
         prod_specs_html = response.xpath('//div[@class="ux-layout-section__row"]')
         import_taxes = response.xpath('//div[@class="ux-labels-values col-12 ux-labels-values--importCharges"]//span[@class="ux-textspans ux-textspans--BOLD"]/text()').get()
@@ -606,6 +609,10 @@ class EbaySpiderSpider(scrapy.Spider):
         subtitle   = get_subtitle(response)
         returns    = get_returns(response)
         shipping_price = get_shipping_price(response)
+
+        not_available_prod = check_availability()
+        if not_available_prod:
+            return
 
         #this pic is always available, but not always there are more than one. Use try: to find other pics, if any pics= main
         ebay_main_pic_url = response.xpath('//img[@id="icImg"]/@src').get()
@@ -675,7 +682,7 @@ class EbaySpiderSpider(scrapy.Spider):
                             'query_model':query_model,
                             'query_prod_state':query_prod_state,
                             'ebay_pics':ebay_pics,
-                            'available_colors':available_colors,
+                            'mean_price':mean_price,
                             'subtitle':subtitle,
                             'iframe_description_url':iframe_description_url
                             })
@@ -713,7 +720,7 @@ class EbaySpiderSpider(scrapy.Spider):
         query_model      =  response.meta['query_model']
         query_prod_state =  response.meta['query_prod_state']
         ebay_pics        =  response.meta['ebay_pics']
-        available_colors =  response.meta['available_colors']
+        mean_price =  response.meta['mean_price']
         subtitle         =  response.meta['subtitle']
         iframe_description_url = response.meta['iframe_description_url']
         
@@ -733,7 +740,7 @@ class EbaySpiderSpider(scrapy.Spider):
         'query_model':query_model,
         'query_prod_state':query_prod_state,
         'ebay_pics':ebay_pics,
-        'available_colors':available_colors,
+        'mean_price':mean_price,
         'subtitle':subtitle,
         'iframe_description_url':iframe_description_url,
         'target_category':target_category,
