@@ -1,7 +1,7 @@
 # (scrapy crawl ebay_tester -o crawler_output.json) -and (move crawler_output.json "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder" -force)
+# C2 (scrapy crawl ebay_tester -o crawler_output_C2.json) -and (move crawler_output_C2.json "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder" -force)
 # cd "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\ebay\ebay_test\ebay_test\spiders"
 # scrapy crawl ebay_tester -o crawler_output.json > log.txt
-# move crawler_output.json "C:\Users\HP EliteBook\OneDrive\A_Miscalaneus\Escritorio\Code\git_folder\sm_sys_folder" -force
 
 
 import traceback
@@ -130,7 +130,6 @@ def get_queries():
 
         yield entry
 
-
 def create_url(query_title, query_prod_state):
     # in gaps file is specified new or not new. Include some kws in the query to maximize results fo each
     if query_prod_state == 'not_new':
@@ -141,12 +140,14 @@ def create_url(query_title, query_prod_state):
     # NEW using search instead of picking categories
     first_chunk     = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
     formatted_query = query_title.replace(' ','+')
-    second_chunk    = '&_sacat=0&_ipg=60&rt=nc&LH_BIN=1' #_ipg = n of articles/page
+    second_chunk    = '&_sacat=0&LH_TitleDesc=0&LH_BIN=1&_sop=2'# precios más bajos primero
+    # second_chunk    = '&_sacat=0&_ipg=60&rt=nc&LH_BIN=1' #_ipg = n of articles/page
     # second_chunk    = '&_sacat=0&_ipg=120&rt=nc&LH_BIN=1' #_ipg = n of articles/page
 
     # second_chunk    = '&_sacat=0&_ipg=120' #_ipg = n of articles/page
     # second_chunk    = '&_sacat=0&rt=nc&LH_BIN=1&_ipg=120' #_ipg = n of articles/page
     # second_chunk    = '&_sacat=0&rt=nc&LH_BIN=1&_ipg=200' #_ipg = n of articles/page
+
 
     query_url = first_chunk + formatted_query + second_chunk
     print(f'------------- {query_url}')
@@ -160,6 +161,44 @@ def create_url(query_title, query_prod_state):
     #     second_url_chunk = '&_sacat=9355&LH_TitleDesc=0&rt=nc&LH_BIN=1&_ipg=200'
 
     return query_url
+
+
+# WARNING! beware that there are 2 funcs like this, one inside filter_title_price() and this one
+#generate excluded kws, returns a dict with a list of kws to avoid. Iphone 11 != Iphone 11 pro 
+def get_excluded_kws(target_title):
+    import traceback
+
+    # given a list of kw
+    # for kw in excluded_kws
+        # if dkw in query:
+            # append to present_kws
+    # if there are some present_kws:
+        # remove those from exluded_kws
+    
+    # now you have a dict with 2 lists: excluded and present
+
+    target_title = str(target_title)
+    try:
+        excluded_kws = ['5g', 'pro', 'max', 'lite', 'ultra', 'plus', 'air','mini', 'active', '+']
+        present_kws  = []
+        for kw in excluded_kws:
+            if kw in target_title:
+                present_kws.append(kw)
+        
+        if len(present_kws) > 0:
+            for kw in present_kws:
+                excluded_kws.remove(kw)
+        try:
+            _dict = {'present_kw':present_kws, 'excluded_kws':excluded_kws}
+            return _dict
+        except:
+            _dict = {'excluded_kws':excluded_kws}
+            return _dict
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        return 'error'
+
 
 def delete_old_output():
     import os
@@ -395,11 +434,14 @@ class EbaySpiderSpider(scrapy.Spider):
                 if serp_id in ebay_id_list:
                     print(f'this ebay_id already exist {serp_id}')
                     continue
-                #if the prod is cheaper than the filter price, ignore that prod
+                #if the prod is cheaper than the min filter price, ignore that prod
                 if serp_price < query_price:
                     print(f'this price <{serp_price}> is too low for the filter price: <{query_price}>')
                     continue
                 
+                ###
+                # price_filter = filter_good_price(serp_price, target_good_price)
+
                 ##### begins title filter #####
                 #filter by title, split query in words, if all words in serp_title and any excluded kws =  yield the serp_link 
                 filtered_link = title_filter(query_title, serp_title, serp_link)
