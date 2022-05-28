@@ -18,6 +18,7 @@ from scrapy.http import HtmlResponse
 import logging
 from time import sleep
 
+
 # logging.basicConfig(level=logging.DEBUG)
 # logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.WARNING)
