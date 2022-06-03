@@ -302,6 +302,7 @@ class EbaySpiderSpider(scrapy.Spider):
                     except:
                         _dict = {'excluded_kws':excluded_kws}
                         return _dict
+                
                 except Exception as e:
                     print(e)
                     traceback.print_exc()
