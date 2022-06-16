@@ -131,13 +131,23 @@ def get_queries():
 
         yield entry
 
-def create_url(query_title, query_prod_state):
+def create_url(query_title, query_prod_state, target_category):
     # in gaps file is specified new or not new. Include some kws in the query to maximize results fo each
-    if query_prod_state == 'not_new':
-        query_title = query_title + ' usado'
-    elif query_prod_state == 'new':
-        query_title = query_title + ' nuevo'
-    
+
+    if target_category == 'consoles':
+        query_title = 'consola ' + query_title
+
+    # if you include usado with consoles it gets only old crapy consoles
+    if target_category != 'consoles':
+        
+        if query_prod_state == 'not_new':
+            query_title += ' usado'
+        elif query_prod_state == 'new':
+            query_title += ' nuevo'
+        
+
+
+
     # NEW using search instead of picking categories
     first_chunk     = 'https://www.ebay.es/sch/i.html?_from=R40&_nkw='
     formatted_query = query_title.replace(' ','+')
@@ -249,7 +259,7 @@ class EbaySpiderSpider(scrapy.Spider):
             query_model=    entry.get('query_model')
 
             #query url might include 'reacondicionado' but query_title don't, so it will appear in serch but it isn't mandatory to filter= prod_titles without 'reacondicionado' will pass the filter
-            query_url = create_url(query_title, query_prod_state)
+            query_url = create_url(query_title, query_prod_state, target_category)
             logging.info(f'this is the query url: {query_url}')
             # query_url = 'https://www.ebay.es/sch/15032/i.html?_from=R40&_nkw=iphone+11&LH_TitleDesc=0'
 
